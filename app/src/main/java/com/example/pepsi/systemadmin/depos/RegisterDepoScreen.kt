@@ -24,19 +24,21 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.example.pepsi.common.data.AdminDataStore
+import com.example.pepsi.common.data.UgandaDistricts
 import com.example.pepsi.common.model.User
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RegisterDepoScreen(onDone: () -> Unit) {
     var name by rememberSaveable { mutableStateOf("") }
-    var location by rememberSaveable { mutableStateOf("") }
+    var location by rememberSaveable { mutableStateOf<String?>(null) }
+    var locationMenuExpanded by remember { mutableStateOf(false) }
     var attendant by rememberSaveable { mutableStateOf<String?>(null) }
     var attendantMenuExpanded by remember { mutableStateOf(false) }
 
     val depoAttendants = AdminDataStore.depoAttendants()
     val selectedAttendant: User? = depoAttendants.firstOrNull { it.id == attendant }
-    val canSave = name.isNotBlank() && location.isNotBlank()
+    val canSave = name.isNotBlank() && location != null
 
     Column(
         modifier = Modifier
@@ -61,13 +63,34 @@ fun RegisterDepoScreen(onDone: () -> Unit) {
             modifier = Modifier.fillMaxWidth(),
         )
 
-        OutlinedTextField(
-            value = location,
-            onValueChange = { location = it },
-            label = { Text("Location") },
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth(),
-        )
+        ExposedDropdownMenuBox(
+            expanded = locationMenuExpanded,
+            onExpandedChange = { locationMenuExpanded = it },
+        ) {
+            OutlinedTextField(
+                value = location ?: "",
+                onValueChange = {},
+                readOnly = true,
+                label = { Text("Location (district)") },
+                placeholder = { Text("Select a district") },
+                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = locationMenuExpanded) },
+                modifier = Modifier.fillMaxWidth().menuAnchor(MenuAnchorType.PrimaryNotEditable),
+            )
+            ExposedDropdownMenu(
+                expanded = locationMenuExpanded,
+                onDismissRequest = { locationMenuExpanded = false },
+            ) {
+                UgandaDistricts.forEach { district ->
+                    DropdownMenuItem(
+                        text = { Text(district) },
+                        onClick = {
+                            location = district
+                            locationMenuExpanded = false
+                        },
+                    )
+                }
+            }
+        }
 
         ExposedDropdownMenuBox(
             expanded = attendantMenuExpanded,
@@ -102,7 +125,7 @@ fun RegisterDepoScreen(onDone: () -> Unit) {
             onClick = {
                 AdminDataStore.registerDepo(
                     name = name.trim(),
-                    location = location.trim(),
+                    location = location!!,
                     depoAttendantId = attendant,
                 )
                 onDone()

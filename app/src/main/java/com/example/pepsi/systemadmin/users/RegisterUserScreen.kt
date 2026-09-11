@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -38,6 +39,8 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import com.example.pepsi.common.data.AdminDataStore
+import com.example.pepsi.common.model.CountryCodes
+import com.example.pepsi.common.model.DefaultCountryCode
 import com.example.pepsi.common.model.Gender
 import com.example.pepsi.common.model.Role
 import com.example.pepsi.common.util.generatePassword
@@ -47,16 +50,21 @@ import com.example.pepsi.common.util.generatePassword
 fun RegisterUserScreen(onDone: () -> Unit) {
     var firstName by rememberSaveable { mutableStateOf("") }
     var lastName by rememberSaveable { mutableStateOf("") }
-    var tel by rememberSaveable { mutableStateOf("") }
+    var dialCode by rememberSaveable { mutableStateOf(DefaultCountryCode.dialCode) }
+    var localNumber by rememberSaveable { mutableStateOf("") }
     var email by rememberSaveable { mutableStateOf("") }
     var password by rememberSaveable { mutableStateOf(generatePassword()) }
     var passwordVisible by rememberSaveable { mutableStateOf(false) }
     var gender by rememberSaveable { mutableStateOf<Gender?>(null) }
     var role by rememberSaveable { mutableStateOf<Role?>(null) }
     var roleMenuExpanded by remember { mutableStateOf(false) }
+    var countryMenuExpanded by remember { mutableStateOf(false) }
+
+    val country = CountryCodes.first { it.dialCode == dialCode }
 
     val canSave = firstName.isNotBlank() && lastName.isNotBlank() &&
-        tel.isNotBlank() && email.isNotBlank() && gender != null && role != null
+        localNumber.length == country.localDigits && email.isNotBlank() &&
+        gender != null && role != null
 
     Column(
         modifier = Modifier
@@ -75,7 +83,7 @@ fun RegisterUserScreen(onDone: () -> Unit) {
 
         OutlinedTextField(
             value = firstName,
-            onValueChange = { firstName = it },
+            onValueChange = { input -> firstName = input.filter { it.isLetter() || it == ' ' } },
             label = { Text("First name") },
             singleLine = true,
             modifier = Modifier.fillMaxWidth(),
@@ -83,20 +91,61 @@ fun RegisterUserScreen(onDone: () -> Unit) {
 
         OutlinedTextField(
             value = lastName,
-            onValueChange = { lastName = it },
+            onValueChange = { input -> lastName = input.filter { it.isLetter() || it == ' ' } },
             label = { Text("Last name") },
             singleLine = true,
             modifier = Modifier.fillMaxWidth(),
         )
 
-        OutlinedTextField(
-            value = tel,
-            onValueChange = { tel = it },
-            label = { Text("Tel") },
-            singleLine = true,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+        Row(
             modifier = Modifier.fillMaxWidth(),
-        )
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            ExposedDropdownMenuBox(
+                expanded = countryMenuExpanded,
+                onExpandedChange = { countryMenuExpanded = it },
+                modifier = Modifier.width(128.dp),
+            ) {
+                OutlinedTextField(
+                    value = country.display,
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text("Code") },
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = countryMenuExpanded) },
+                    modifier = Modifier.fillMaxWidth().menuAnchor(MenuAnchorType.PrimaryNotEditable),
+                )
+                ExposedDropdownMenu(
+                    expanded = countryMenuExpanded,
+                    onDismissRequest = { countryMenuExpanded = false },
+                ) {
+                    CountryCodes.forEach { option ->
+                        DropdownMenuItem(
+                            text = { Text("${option.display} ${option.countryName}") },
+                            onClick = {
+                                dialCode = option.dialCode
+                                localNumber = localNumber.take(option.localDigits)
+                                countryMenuExpanded = false
+                            },
+                        )
+                    }
+                }
+            }
+
+            OutlinedTextField(
+                value = localNumber,
+                onValueChange = { input -> localNumber = input.filter { it.isDigit() }.take(country.localDigits) },
+                label = { Text("Tel (${country.localDigits} digits)") },
+                singleLine = true,
+                isError = localNumber.isNotEmpty() && localNumber.length != country.localDigits,
+                supportingText = {
+                    if (localNumber.isNotEmpty() && localNumber.length != country.localDigits) {
+                        Text("Enter exactly ${country.localDigits} digits for ${country.countryName}")
+                    }
+                },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                modifier = Modifier.weight(1f),
+            )
+        }
 
         OutlinedTextField(
             value = email,
@@ -172,7 +221,7 @@ fun RegisterUserScreen(onDone: () -> Unit) {
                 AdminDataStore.registerUser(
                     firstName = firstName.trim(),
                     lastName = lastName.trim(),
-                    tel = tel.trim(),
+                    tel = "${country.dialCode} $localNumber",
                     email = email.trim(),
                     password = password,
                     gender = gender!!,
