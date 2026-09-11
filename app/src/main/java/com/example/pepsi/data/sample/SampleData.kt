@@ -141,9 +141,12 @@ object SampleData {
     )
 
     val manager = ManagerProfile(
-        name = "Joseph Tumusiime",
-        telephone = "+256 700 777 888",
-        email = "joseph.tumusiime@pepsidepo.com",
-        gender = "Male",
+        name = "Diana Nakato",
+        telephone = "+256 700 888 999",
+        email = "diana.nakato@pepsidepo.com",
+        password = "Pepsi@2026",
+        gender = "Female",
     )
+
+    val systemAdministrator = workers.first { it.role == WorkerRole.SystemAdmin }
 }

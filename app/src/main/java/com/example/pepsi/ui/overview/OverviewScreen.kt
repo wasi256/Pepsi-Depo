@@ -28,6 +28,14 @@ import com.example.pepsi.ui.components.KpiData
 import com.example.pepsi.ui.components.LineChart
 import com.example.pepsi.ui.components.PepsiTopBar
 import com.example.pepsi.ui.components.TrendPeriodSelector
+import java.util.Calendar
+
+private fun greetingForHour(hour: Int): String = when (hour) {
+    in 5..11 -> "Good Morning"
+    in 12..16 -> "Good Afternoon"
+    in 17..20 -> "Good Evening"
+    else -> "Good Night"
+}
 
 @Composable
 fun OverviewScreen(
@@ -43,6 +51,8 @@ fun OverviewScreen(
         KpiData("Total Productions", SampleData.totalProductions),
     )
     var selectedPeriod by remember { mutableStateOf(TrendPeriod.Monthly) }
+    val greeting = remember { greetingForHour(Calendar.getInstance().get(Calendar.HOUR_OF_DAY)) }
+    val managerFirstName = remember { SampleData.manager.name.substringBefore(" ") }
 
     Scaffold(
         topBar = {
@@ -61,6 +71,21 @@ fun OverviewScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
+            item {
+                Column {
+                    Text(
+                        text = "$greeting, $managerFirstName",
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    Text(
+                        text = "Here's what's happening across Pepsi Depo today.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+
             items(kpis.chunked(2)) { rowItems ->
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(12.dp),

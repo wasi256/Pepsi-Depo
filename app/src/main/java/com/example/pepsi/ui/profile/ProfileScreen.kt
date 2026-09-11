@@ -1,7 +1,10 @@
 package com.example.pepsi.ui.profile
 
+import android.Manifest
+import android.content.pm.PackageManager
 import android.graphics.BitmapFactory
 import android.net.Uri
+import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
@@ -56,7 +59,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import com.example.pepsi.data.sample.SampleData
+import com.example.pepsi.notifications.notifySystemAdminOfPasswordChangeRequest
 
 private val genderOptions = listOf("Male", "Female", "Other")
 
@@ -79,15 +84,26 @@ fun ProfileScreen(
         }
     }
 
-    var name by remember { mutableStateOf(manager.name) }
     var phone by remember { mutableStateOf(manager.telephone) }
-    var email by remember { mutableStateOf(manager.email) }
     var gender by remember { mutableStateOf(manager.gender) }
     var genderExpanded by remember { mutableStateOf(false) }
 
-    var currentPassword by remember { mutableStateOf("") }
-    var newPassword by remember { mutableStateOf("") }
-    var confirmPassword by remember { mutableStateOf("") }
+    var passwordChangeRequested by remember { mutableStateOf(false) }
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission(),
+    ) { notifySystemAdminOfPasswordChangeRequest(context, manager.name) }
+
+    fun requestPasswordChange() {
+        passwordChangeRequested = true
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        } else {
+            notifySystemAdminOfPasswordChangeRequest(context, manager.name)
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -175,8 +191,10 @@ fun ProfileScreen(
             }
             item {
                 OutlinedTextField(
-                    value = name,
-                    onValueChange = { name = it },
+                    value = manager.name,
+                    onValueChange = {},
+                    readOnly = true,
+                    enabled = false,
                     label = { Text("Full Name") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
@@ -193,8 +211,10 @@ fun ProfileScreen(
             }
             item {
                 OutlinedTextField(
-                    value = email,
-                    onValueChange = { email = it },
+                    value = manager.email,
+                    onValueChange = {},
+                    readOnly = true,
+                    enabled = false,
                     label = { Text("Email") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
@@ -273,8 +293,8 @@ fun ProfileScreen(
                     )
                 }
                 Text(
-                    text = "Only a System Administrator can assign a new password for this account. " +
-                        "Contact your admin to request a change.",
+                    text = "Your current password is shown below for reference. Only a System " +
+                        "Administrator can assign a new one — tap Change Password to notify them.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 4.dp),
@@ -282,11 +302,22 @@ fun ProfileScreen(
             }
             item {
                 OutlinedTextField(
-                    value = currentPassword,
-                    onValueChange = { currentPassword = it },
+                    value = manager.password,
+                    onValueChange = {},
+                    readOnly = true,
                     label = { Text("Current Password") },
                     singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+            item {
+                OutlinedTextField(
+                    value = "",
+                    onValueChange = {},
+                    readOnly = true,
                     enabled = false,
+                    label = { Text("New Password (set by System Administrator)") },
+                    singleLine = true,
                     visualTransformation = PasswordVisualTransformation(),
                     colors = OutlinedTextFieldDefaults.colors(disabledTextColor = MaterialTheme.colorScheme.onSurfaceVariant),
                     modifier = Modifier.fillMaxWidth(),
@@ -294,23 +325,12 @@ fun ProfileScreen(
             }
             item {
                 OutlinedTextField(
-                    value = newPassword,
-                    onValueChange = { newPassword = it },
-                    label = { Text("New Password") },
-                    singleLine = true,
+                    value = "",
+                    onValueChange = {},
+                    readOnly = true,
                     enabled = false,
-                    visualTransformation = PasswordVisualTransformation(),
-                    colors = OutlinedTextFieldDefaults.colors(disabledTextColor = MaterialTheme.colorScheme.onSurfaceVariant),
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
-            item {
-                OutlinedTextField(
-                    value = confirmPassword,
-                    onValueChange = { confirmPassword = it },
-                    label = { Text("Confirm New Password") },
+                    label = { Text("Confirm New Password (set by System Administrator)") },
                     singleLine = true,
-                    enabled = false,
                     visualTransformation = PasswordVisualTransformation(),
                     colors = OutlinedTextFieldDefaults.colors(disabledTextColor = MaterialTheme.colorScheme.onSurfaceVariant),
                     modifier = Modifier.fillMaxWidth(),
@@ -318,11 +338,24 @@ fun ProfileScreen(
             }
             item {
                 Button(
-                    onClick = {},
-                    enabled = false,
+                    onClick = { requestPasswordChange() },
                     modifier = Modifier.fillMaxWidth(),
                 ) {
                     Text("Change Password")
+                }
+            }
+            if (passwordChangeRequested) {
+                item {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
+                    ) {
+                        Text(
+                            text = "Request sent — ${SampleData.systemAdministrator.name} has been " +
+                                "notified to assign you a new password.",
+                            modifier = Modifier.padding(12.dp),
+                        )
+                    }
                 }
             }
 

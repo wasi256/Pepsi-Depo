@@ -72,6 +72,7 @@ data class ManagerProfile(
     val name: String,
     val telephone: String,
     val email: String,
+    val password: String,
     val gender: String,
     val role: String = "Manager",
 )
