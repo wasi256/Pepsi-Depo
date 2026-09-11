@@ -34,6 +34,8 @@ fun DeposScreen(onRegisterDepo: () -> Unit) {
                 text = { Text("Register Depo") },
                 icon = { Icon(Icons.Filled.AddBusiness, contentDescription = null) },
                 onClick = onRegisterDepo,
+                containerColor = MaterialTheme.colorScheme.secondary,
+                contentColor = MaterialTheme.colorScheme.onSecondary,
             )
         },
     ) { padding ->

@@ -1,6 +1,9 @@
 package com.example.pepsi.navigation
 
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Menu
@@ -8,20 +11,26 @@ import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.example.pepsi.R
 import com.example.pepsi.systemadmin.audit.AuditLogsScreen
 import com.example.pepsi.systemadmin.depos.DeposScreen
 import com.example.pepsi.systemadmin.depos.RegisterDepoScreen
@@ -67,7 +76,19 @@ fun AppShell(navController: NavHostController = rememberNavController()) {
         Scaffold(
             topBar = {
                 TopAppBar(
-                    title = { Text(titleFor(currentRoute)) },
+                    title = {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Image(
+                                painter = painterResource(R.drawable.pepsi_logo),
+                                contentDescription = null,
+                                modifier = Modifier.size(28.dp),
+                            )
+                            Text(
+                                text = titleFor(currentRoute),
+                                modifier = Modifier.padding(start = 10.dp),
+                            )
+                        }
+                    },
                     navigationIcon = {
                         if (isTopLevel) {
                             IconButton(onClick = { scope.launch { drawerState.open() } }) {
@@ -79,6 +100,12 @@ fun AppShell(navController: NavHostController = rememberNavController()) {
                             }
                         }
                     },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        titleContentColor = MaterialTheme.colorScheme.onPrimary,
+                        navigationIconContentColor = MaterialTheme.colorScheme.onPrimary,
+                        actionIconContentColor = MaterialTheme.colorScheme.onPrimary,
+                    ),
                 )
             },
         ) { innerPadding ->

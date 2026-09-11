@@ -38,9 +38,21 @@ object AdminDataStore {
 
     val systemHealthPercent = mutableStateOf(96)
 
+    // Historical readings preceding the live count/percent, used to draw the
+    // Overview trend charts. The live value is always appended as the latest point.
+    private val usersTrendHistory = listOf(2, 2, 3, 3, 4, 4)
+    private val deposTrendHistory = listOf(1, 1, 1, 2, 2, 3)
+    private val healthTrendHistory = listOf(90, 92, 91, 94, 95, 95)
+
     private var userSeq = users.size
     private var depoSeq = depos.size
     private var logSeq = auditLogs.size
+
+    fun usersTrend(): List<Float> = (usersTrendHistory + users.size).map { it.toFloat() }
+
+    fun deposTrend(): List<Float> = (deposTrendHistory + depos.size).map { it.toFloat() }
+
+    fun healthTrend(): List<Float> = (healthTrendHistory + systemHealthPercent.value).map { it.toFloat() }
 
     fun depoAttendants(): List<User> = users.filter { it.role == Role.DEPO_ATTENDANT }
 
@@ -92,6 +104,16 @@ object AdminDataStore {
         depos.add(depo)
         logAction(actor, "DEPO_REGISTERED", "Registered $name at $location")
         return depo
+    }
+
+    fun changePassword(userId: String, currentPassword: String, newPassword: String): Boolean {
+        val index = users.indexOfFirst { it.id == userId }
+        if (index == -1) return false
+        val user = users[index]
+        if (user.password != currentPassword) return false
+        users[index] = user.copy(password = newPassword)
+        logAction(user.fullName, "PASSWORD_CHANGED", "Password changed for ${user.fullName}")
+        return true
     }
 
     private fun logAction(actor: String, action: String, details: String) {
