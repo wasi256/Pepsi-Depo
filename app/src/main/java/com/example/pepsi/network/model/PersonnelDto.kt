@@ -10,6 +10,10 @@ data class PersonnelCreateRequest(
     val salary: Double,
 )
 
+data class PersonnelRoleAssignRequest(
+    val role_id: Int,
+)
+
 data class PersonnelResponse(
     val id: Int,
     val role_id: Int?,
