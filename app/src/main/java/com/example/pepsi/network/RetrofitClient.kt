@@ -30,4 +30,6 @@ object RetrofitClient {
         .client(okHttpClient)
         .addConverterFactory(GsonConverterFactory.create())
         .build()
+
+    val adminApi: AdminApiService by lazy { instance.create(AdminApiService::class.java) }
 }
