@@ -14,6 +14,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -21,26 +22,42 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.example.pepsi.data.model.DeliveryStatus
-import com.example.pepsi.data.model.RangePeriod
-import com.example.pepsi.data.state.DepoState
+import com.example.pepsi.data.network.DepotApiService
+import com.example.pepsi.data.network.RetrofitClient
+import com.example.pepsi.data.network.model.DepotStockDto
+import com.example.pepsi.data.state.DepotSession
+import com.example.pepsi.ui.components.DepotDropdown
+import com.example.pepsi.ui.components.ListStatus
 import com.example.pepsi.ui.components.PepsiTopBar
-import com.example.pepsi.ui.components.RangePeriodSelector
+import com.example.pepsi.util.formatApiDateTime
 
 @Composable
 fun ViewStocksScreen(onMenuClick: () -> Unit) {
-    var selectedPeriod by remember { mutableStateOf(RangePeriod.Today) }
+    val depotApi = remember { RetrofitClient.createService(DepotApiService::class.java) }
 
-    val soldInPeriod = DepoState.sales
-        .filter { DepoState.matchesPeriod(it.date, selectedPeriod) }
-        .groupBy { it.productName }
-        .mapValues { (_, records) -> records.sumOf { it.quantity } }
+    val depots by DepotSession.depots
+    val selectedDepot by DepotSession.selectedDepot
+    val depotsLoading by DepotSession.isLoading
 
-    val receivedInPeriod = DepoState.deliveries
-        .filter { it.status == DeliveryStatus.Confirmed && DepoState.matchesPeriod(it.date, selectedPeriod) }
-        .flatMap { it.items }
-        .groupBy { it.productName }
-        .mapValues { (_, items) -> items.sumOf { it.quantitySent } }
+    var stock by remember { mutableStateOf<List<DepotStockDto>>(emptyList()) }
+    var stockLoading by remember { mutableStateOf(true) }
+    var stockError by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(Unit) {
+        DepotSession.ensureLoaded(depotApi)
+    }
+
+    LaunchedEffect(selectedDepot) {
+        stockLoading = true
+        stockError = null
+        try {
+            stock = depotApi.getDepotStock(depotId = selectedDepot?.id)
+        } catch (e: Exception) {
+            stockError = e.localizedMessage ?: "Failed to load stock."
+        } finally {
+            stockLoading = false
+        }
+    }
 
     Scaffold(
         topBar = { PepsiTopBar(title = "View Stocks", onMenuClick = onMenuClick) },
@@ -53,25 +70,26 @@ fun ViewStocksScreen(onMenuClick: () -> Unit) {
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             item {
-                RangePeriodSelector(selected = selectedPeriod, onSelect = { selectedPeriod = it })
-            }
-            item {
-                Text(
-                    text = "Current stock, with movement for ${selectedPeriod.label.lowercase()}",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                DepotDropdown(
+                    depots = depots,
+                    selectedDepot = selectedDepot,
+                    onDepotSelected = DepotSession::select,
+                    isLoading = depotsLoading,
                 )
             }
             item {
-                StockTableHeader()
-            }
-            items(DepoState.stock, key = { it.productName }) { stockItem ->
-                StockRow(
-                    productName = stockItem.productName,
-                    quantity = stockItem.quantity,
-                    sold = soldInPeriod[stockItem.productName] ?: 0,
-                    received = receivedInPeriod[stockItem.productName] ?: 0,
+                ListStatus(
+                    isLoading = stockLoading,
+                    error = stockError,
+                    isEmpty = !stockLoading && stockError == null && stock.isEmpty(),
+                    emptyText = "No stock recorded for this depot.",
                 )
+            }
+            if (!stockLoading && stockError == null && stock.isNotEmpty()) {
+                item { StockTableHeader() }
+                items(stock, key = { it.id }) { item ->
+                    StockRow(item)
+                }
             }
         }
     }
@@ -82,23 +100,27 @@ private fun StockTableHeader() {
     Card(modifier = Modifier.fillMaxWidth()) {
         Row(modifier = Modifier.padding(12.dp)) {
             Text(text = "Product", fontWeight = FontWeight.Bold, modifier = Modifier.weight(2f))
+            Text(text = "Size", fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
             Text(text = "Available", fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-            Text(text = "Sold", fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-            Text(text = "Received", fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
         }
     }
 }
 
 @Composable
-private fun StockRow(productName: String, quantity: Int, sold: Int, received: Int) {
+private fun StockRow(item: DepotStockDto) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column {
             Row(modifier = Modifier.padding(12.dp)) {
-                Text(text = productName, modifier = Modifier.weight(2f))
-                Text(text = "$quantity", modifier = Modifier.weight(1f))
-                Text(text = "$sold", modifier = Modifier.weight(1f))
-                Text(text = "$received", modifier = Modifier.weight(1f))
+                Text(text = item.productName, modifier = Modifier.weight(2f))
+                Text(text = item.quantityValue, modifier = Modifier.weight(1f))
+                Text(text = "${item.currentAmount}", modifier = Modifier.weight(1f))
             }
+            Text(
+                text = "Updated: ${formatApiDateTime(item.updatedAt)}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(start = 12.dp, end = 12.dp, bottom = 8.dp),
+            )
             HorizontalDivider()
         }
     }

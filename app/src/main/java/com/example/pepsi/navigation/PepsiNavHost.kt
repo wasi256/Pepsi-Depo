@@ -18,6 +18,7 @@ import com.example.pepsi.ui.production.ProductionRecordsScreen
 import com.example.pepsi.ui.production.RecordProductionScreen
 import com.example.pepsi.ui.profile.ProfileScreen
 import com.example.pepsi.ui.receive.ReceiveProductsScreen
+import com.example.pepsi.ui.receive.RestockHistoryScreen
 import com.example.pepsi.ui.saleshistory.SalesHistoryScreen
 import com.example.pepsi.ui.sell.SellProductsScreen
 import com.example.pepsi.ui.stocks.ViewStocksScreen
@@ -68,6 +69,9 @@ fun PepsiNavHost(navController: NavHostController = rememberNavController()) {
             }
             composable(Screen.ReceiveProducts.route) {
                 ReceiveProductsScreen(onMenuClick = ::openDrawer)
+            }
+            composable(Screen.RestockHistory.route) {
+                RestockHistoryScreen(onMenuClick = ::openDrawer)
             }
             composable(Screen.SellProducts.route) {
                 SellProductsScreen(onMenuClick = ::openDrawer)

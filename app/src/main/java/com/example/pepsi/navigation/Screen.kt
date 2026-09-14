@@ -4,6 +4,7 @@ sealed class Screen(val route: String, val label: String) {
     data object DepotOverview : Screen("depot_overview", "Overview")
     data object SalesHistory : Screen("sales_history", "Sales History")
     data object ReceiveProducts : Screen("receive_products", "Receive Products")
+    data object RestockHistory : Screen("restock_history", "Restock History")
     data object SellProducts : Screen("sell_products", "Sell Products")
     data object ViewStocks : Screen("view_stocks", "View Stocks")
 
@@ -20,6 +21,7 @@ val depotDrawerScreens: List<Screen> = listOf(
     Screen.DepotOverview,
     Screen.SalesHistory,
     Screen.ReceiveProducts,
+    Screen.RestockHistory,
     Screen.SellProducts,
     Screen.ViewStocks,
 )
