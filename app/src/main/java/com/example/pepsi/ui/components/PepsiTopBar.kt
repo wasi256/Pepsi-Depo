@@ -8,6 +8,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -46,8 +47,9 @@ fun PepsiLogo(modifier: Modifier = Modifier) {
 fun PepsiTopBar(
     title: String,
     onMenuClick: () -> Unit,
-    showProfileAction: Boolean = false,
-    onProfileClick: () -> Unit = {},
+    showActions: Boolean = false,
+    onNotificationsClick: () -> Unit = {},
+    onAdminClick: () -> Unit = {},
 ) {
     TopAppBar(
         title = {
@@ -65,9 +67,12 @@ fun PepsiTopBar(
             }
         },
         actions = {
-            if (showProfileAction) {
-                IconButton(onClick = onProfileClick) {
-                    Icon(Icons.Filled.AccountCircle, contentDescription = "Profile")
+            if (showActions) {
+                IconButton(onClick = onNotificationsClick) {
+                    Icon(Icons.Filled.Notifications, contentDescription = "Notifications")
+                }
+                IconButton(onClick = onAdminClick) {
+                    Icon(Icons.Filled.AccountCircle, contentDescription = "Admin")
                 }
             }
         },

@@ -10,61 +10,53 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.pepsi.data.model.HourlySales
+import com.example.pepsi.data.model.TrendPoint
 
 @Composable
-fun HourlySalesBarChart(
-    data: List<HourlySales>,
+fun LineChart(
+    data: List<TrendPoint>,
     modifier: Modifier = Modifier,
-    barColor: Color = MaterialTheme.colorScheme.primary,
+    lineColor: Color = MaterialTheme.colorScheme.primary,
 ) {
-    val maxValue = (data.maxOfOrNull { it.unitsSold } ?: 0).coerceAtLeast(1)
+    val maxValue = (data.maxOfOrNull { it.value } ?: 0).coerceAtLeast(1)
     val labelColor = MaterialTheme.colorScheme.onSurface
 
     Column(modifier = modifier.fillMaxWidth()) {
         Canvas(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(180.dp)
-                .padding(horizontal = 8.dp),
+                .height(160.dp)
+                .padding(horizontal = 12.dp, vertical = 8.dp),
         ) {
-            val barCount = data.size
-            if (barCount == 0) return@Canvas
-            val gap = size.width * 0.02f
-            val barWidth = (size.width - gap * (barCount - 1)) / barCount
+            if (data.size < 2) return@Canvas
+            val stepX = size.width / (data.size - 1)
+            fun yFor(value: Int) = size.height - (size.height * value.toFloat() / maxValue)
 
-            drawLine(
-                color = labelColor.copy(alpha = 0.3f),
-                start = Offset(0f, size.height),
-                end = Offset(size.width, size.height),
-                strokeWidth = 2f,
-            )
+            val path = Path()
+            data.forEachIndexed { index, point ->
+                val x = index * stepX
+                val y = yFor(point.value)
+                if (index == 0) path.moveTo(x, y) else path.lineTo(x, y)
+            }
+            drawPath(path = path, color = lineColor, style = Stroke(width = 5f))
 
-            data.forEachIndexed { index, hourly ->
-                val barHeight = size.height * (hourly.unitsSold.toFloat() / maxValue)
-                val left = index * (barWidth + gap)
-                val top = size.height - barHeight
-
-                drawRoundRect(
-                    color = barColor,
-                    topLeft = Offset(left, top),
-                    size = Size(barWidth, barHeight),
-                    cornerRadius = CornerRadius(6f, 6f),
-                )
-
+            data.forEachIndexed { index, point ->
+                val x = index * stepX
+                val y = yFor(point.value)
+                drawCircle(color = lineColor, radius = 6f, center = Offset(x, y))
                 drawContext.canvas.nativeCanvas.drawText(
-                    hourly.unitsSold.toString(),
-                    left + barWidth / 2,
-                    (top - 8f).coerceAtLeast(12f),
+                    point.value.toString(),
+                    x,
+                    (y - 14f).coerceAtLeast(12f),
                     android.graphics.Paint().apply {
                         color = labelColor.toArgb()
                         textAlign = android.graphics.Paint.Align.CENTER
@@ -74,9 +66,9 @@ fun HourlySalesBarChart(
             }
         }
         Row(modifier = Modifier.fillMaxWidth()) {
-            data.forEach { hourly ->
+            data.forEach { point ->
                 Text(
-                    text = hourly.hourLabel,
+                    text = point.label,
                     style = MaterialTheme.typography.labelMedium.copy(fontSize = 10.sp),
                     color = labelColor,
                     textAlign = TextAlign.Center,
