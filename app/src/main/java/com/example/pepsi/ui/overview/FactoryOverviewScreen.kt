@@ -1,22 +1,19 @@
 package com.example.pepsi.ui.overview
 
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -24,11 +21,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.example.pepsi.data.network.FactoryApiService
-import com.example.pepsi.data.network.RetrofitClient
-import com.example.pepsi.data.network.model.FactoryStockDto
-import com.example.pepsi.ui.components.ListStatus
+import com.example.pepsi.data.model.TrendPeriod
+import com.example.pepsi.data.sample.FactorySampleData
+import com.example.pepsi.ui.components.KpiCard
+import com.example.pepsi.ui.components.KpiData
+import com.example.pepsi.ui.components.LineChart
 import com.example.pepsi.ui.components.PepsiTopBar
+import com.example.pepsi.ui.components.TrendPeriodSelector
 import java.util.Calendar
 
 private fun greetingForHour(hour: Int): String = when (hour) {
@@ -41,30 +40,29 @@ private fun greetingForHour(hour: Int): String = when (hour) {
 @Composable
 fun FactoryOverviewScreen(
     onMenuClick: () -> Unit,
-    onRecordProduction: () -> Unit,
-    onRecordSupply: () -> Unit,
-    onViewProductionRecords: () -> Unit,
-    onViewSupplyRecords: () -> Unit,
+    onProfileClick: () -> Unit,
+    onViewProducts: () -> Unit,
+    onViewDepos: () -> Unit,
 ) {
-    val apiService = remember { RetrofitClient.createService(FactoryApiService::class.java) }
+    val kpis = listOf(
+        KpiData("Total Distributions", FactorySampleData.totalDistributions.toString()),
+        KpiData("Total Sales", FactorySampleData.totalSales.toString()),
+        KpiData("Total Depos", FactorySampleData.totalDepos.toString()),
+        KpiData("Total Productions", FactorySampleData.totalProductions.toString()),
+    )
+    var selectedPeriod by remember { mutableStateOf(TrendPeriod.Monthly) }
     val greeting = remember { greetingForHour(Calendar.getInstance().get(Calendar.HOUR_OF_DAY)) }
-
-    var stock by remember { mutableStateOf<List<FactoryStockDto>>(emptyList()) }
-    var stockLoading by remember { mutableStateOf(true) }
-    var stockError by remember { mutableStateOf<String?>(null) }
-
-    LaunchedEffect(Unit) {
-        try {
-            stock = apiService.getFactoryStock()
-        } catch (e: Exception) {
-            stockError = e.localizedMessage ?: "Failed to load factory stock."
-        } finally {
-            stockLoading = false
-        }
-    }
+    val managerFirstName = remember { FactorySampleData.manager.name.substringBefore(" ") }
 
     Scaffold(
-        topBar = { PepsiTopBar(title = "Overview", onMenuClick = onMenuClick) },
+        topBar = {
+            PepsiTopBar(
+                title = "Overview",
+                onMenuClick = onMenuClick,
+                showProfileAction = true,
+                onProfileClick = onProfileClick,
+            )
+        },
     ) { padding ->
         LazyColumn(
             modifier = Modifier
@@ -76,7 +74,7 @@ fun FactoryOverviewScreen(
             item {
                 Column {
                     Text(
-                        text = greeting,
+                        text = "$greeting, $managerFirstName",
                         style = MaterialTheme.typography.headlineSmall,
                         fontWeight = FontWeight.Bold,
                     )
@@ -88,41 +86,53 @@ fun FactoryOverviewScreen(
                 }
             }
 
+            items(kpis.chunked(2)) { rowItems ->
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    rowItems.forEach { kpi ->
+                        KpiCard(data = kpi, modifier = Modifier.weight(1f))
+                    }
+                }
+            }
+
+            item {
+                TrendPeriodSelector(
+                    selected = selectedPeriod,
+                    onSelect = { selectedPeriod = it },
+                )
+            }
+
             item {
                 Text(
-                    text = "Factory Current Stock",
+                    text = "Products Sold",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                 )
             }
             item {
-                ListStatus(
-                    isLoading = stockLoading,
-                    error = stockError,
-                    isEmpty = !stockLoading && stockError == null && stock.isEmpty(),
-                    emptyText = "No factory stock recorded yet.",
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    LineChart(
+                        data = FactorySampleData.productsSoldTrends.getValue(selectedPeriod),
+                        modifier = Modifier.padding(16.dp),
+                    )
+                }
+            }
+
+            item {
+                Text(
+                    text = "Products Manufactured",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
                 )
             }
-            if (!stockLoading && stockError == null && stock.isNotEmpty()) {
-                item {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .horizontalScroll(rememberScrollState()),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    ) {
-                        stock.forEach { item ->
-                            Card(modifier = Modifier.width(160.dp)) {
-                                Column(modifier = Modifier.padding(12.dp)) {
-                                    Text(text = item.productName, fontWeight = FontWeight.Bold)
-                                    Text(
-                                        text = "Available: ${item.availableQuantity}",
-                                        style = MaterialTheme.typography.bodyMedium,
-                                    )
-                                }
-                            }
-                        }
-                    }
+            item {
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    LineChart(
+                        data = FactorySampleData.productsManufacturedTrends.getValue(selectedPeriod),
+                        modifier = Modifier.padding(16.dp),
+                    )
                 }
             }
 
@@ -137,17 +147,11 @@ fun FactoryOverviewScreen(
 
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Button(onClick = onRecordProduction, modifier = Modifier.fillMaxWidth()) {
-                        Text("Record Production")
+                    Button(onClick = onViewDepos, modifier = Modifier.fillMaxWidth()) {
+                        Text("View Current Stock")
                     }
-                    Button(onClick = onRecordSupply, modifier = Modifier.fillMaxWidth()) {
-                        Text("Record Supply")
-                    }
-                    Button(onClick = onViewProductionRecords, modifier = Modifier.fillMaxWidth()) {
-                        Text("View Production Records")
-                    }
-                    Button(onClick = onViewSupplyRecords, modifier = Modifier.fillMaxWidth()) {
-                        Text("View Supply Records")
+                    Button(onClick = onViewProducts, modifier = Modifier.fillMaxWidth()) {
+                        Text("History of Supply and Production")
                     }
                 }
             }

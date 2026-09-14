@@ -8,12 +8,13 @@ sealed class Screen(val route: String, val label: String) {
     data object ViewStocks : Screen("view_stocks", "View Stocks")
 
     data object FactoryOverview : Screen("factory_overview", "Overview")
-    data object RecordProduction : Screen("record_production", "Record Production")
-    data object RecordSupply : Screen("record_supply", "Record Supply")
-    data object ProductionRecords : Screen("production_records", "View Production Records")
-    data object SupplyRecords : Screen("supply_records", "View Supply Records")
+    data object FactorySales : Screen("factory_sales", "Sales")
+    data object FactoryProducts : Screen("factory_products", "Products")
+    data object FactoryDepos : Screen("factory_depos", "Depos")
+    data object FactoryWorkers : Screen("factory_workers", "Workers")
 
     data object Profile : Screen("profile", "Profile")
+    data object FactoryProfile : Screen("factory_profile", "Factory Profile")
 }
 
 val depotDrawerScreens: List<Screen> = listOf(
@@ -26,8 +27,8 @@ val depotDrawerScreens: List<Screen> = listOf(
 
 val factoryDrawerScreens: List<Screen> = listOf(
     Screen.FactoryOverview,
-    Screen.RecordProduction,
-    Screen.RecordSupply,
-    Screen.ProductionRecords,
-    Screen.SupplyRecords,
+    Screen.FactorySales,
+    Screen.FactoryProducts,
+    Screen.FactoryDepos,
+    Screen.FactoryWorkers,
 )
