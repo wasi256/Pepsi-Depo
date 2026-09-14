@@ -12,7 +12,6 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import com.example.pepsi.ui.landing.RoleSelectionScreen
 import com.example.pepsi.ui.overview.FactoryOverviewScreen
 import com.example.pepsi.ui.overview.OverviewScreen
 import com.example.pepsi.ui.production.ProductionRecordsScreen
@@ -32,14 +31,10 @@ fun PepsiNavHost(navController: NavHostController = rememberNavController()) {
     val scope = rememberCoroutineScope()
     val currentRoute = navController.currentBackStackEntryAsState().value?.destination?.route
 
-    val isFactoryRoute = factoryDrawerScreens.any { it.route == currentRoute }
-    val currentDrawerScreens = if (isFactoryRoute) factoryDrawerScreens else depotDrawerScreens
-    val currentModuleHome = if (isFactoryRoute) Screen.FactoryOverview.route else Screen.DepotOverview.route
-
     fun navigateTo(screen: Screen) {
         scope.launch { drawerState.close() }
         navController.navigate(screen.route) {
-            popUpTo(currentModuleHome) { inclusive = false }
+            popUpTo(Screen.DepotOverview.route) { inclusive = false }
             launchSingleTop = true
         }
     }
@@ -48,43 +43,17 @@ fun PepsiNavHost(navController: NavHostController = rememberNavController()) {
         scope.launch { drawerState.open() }
     }
 
-    fun switchRole() {
-        scope.launch { drawerState.close() }
-        navController.navigate(Screen.RoleSelection.route) {
-            popUpTo(navController.graph.id) { inclusive = true }
-        }
-    }
-
     ModalNavigationDrawer(
         drawerState = drawerState,
         drawerContent = {
-            AppDrawer(
-                screens = currentDrawerScreens,
-                currentRoute = currentRoute,
-                onItemClick = ::navigateTo,
-                onSwitchRole = ::switchRole,
-            )
+            AppDrawer(currentRoute = currentRoute, onItemClick = ::navigateTo)
         },
     ) {
         NavHost(
             navController = navController,
-            startDestination = Screen.RoleSelection.route,
+            startDestination = Screen.DepotOverview.route,
             modifier = Modifier.fillMaxSize(),
         ) {
-            composable(Screen.RoleSelection.route) {
-                RoleSelectionScreen(
-                    onSelectDepot = {
-                        navController.navigate(Screen.DepotOverview.route) {
-                            popUpTo(Screen.RoleSelection.route) { inclusive = true }
-                        }
-                    },
-                    onSelectFactory = {
-                        navController.navigate(Screen.FactoryOverview.route) {
-                            popUpTo(Screen.RoleSelection.route) { inclusive = true }
-                        }
-                    },
-                )
-            }
             composable(Screen.DepotOverview.route) {
                 OverviewScreen(
                     onMenuClick = ::openDrawer,

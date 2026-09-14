@@ -1,8 +1,6 @@
 package com.example.pepsi.navigation
 
 sealed class Screen(val route: String, val label: String) {
-    data object RoleSelection : Screen("role_selection", "Choose Role")
-
     data object DepotOverview : Screen("depot_overview", "Overview")
     data object SalesHistory : Screen("sales_history", "Sales History")
     data object ReceiveProducts : Screen("receive_products", "Receive Products")
