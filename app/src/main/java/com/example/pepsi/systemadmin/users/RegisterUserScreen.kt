@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
@@ -15,6 +16,7 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
@@ -30,20 +32,28 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
+import android.widget.Toast
 import com.example.pepsi.common.data.AdminDataStore
 import com.example.pepsi.common.model.CountryCodes
 import com.example.pepsi.common.model.DefaultCountryCode
 import com.example.pepsi.common.model.Gender
 import com.example.pepsi.common.model.Role
 import com.example.pepsi.common.util.generatePassword
+import com.example.pepsi.network.RetrofitClient
+import com.example.pepsi.network.model.PersonnelCreateRequest
+import com.example.pepsi.network.readErrorMessage
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -59,12 +69,21 @@ fun RegisterUserScreen(onDone: () -> Unit) {
     var role by rememberSaveable { mutableStateOf<Role?>(null) }
     var roleMenuExpanded by remember { mutableStateOf(false) }
     var countryMenuExpanded by remember { mutableStateOf(false) }
+    var roleId by rememberSaveable { mutableStateOf("") }
+    var depotId by rememberSaveable { mutableStateOf("") }
+    var salary by rememberSaveable { mutableStateOf("") }
+    var isSubmitting by remember { mutableStateOf(false) }
+
+    val scope = rememberCoroutineScope()
+    val context = LocalContext.current
 
     val country = CountryCodes.first { it.dialCode == dialCode }
 
     val canSave = firstName.isNotBlank() && lastName.isNotBlank() &&
         localNumber.length == country.localDigits && email.isNotBlank() &&
-        gender != null && role != null
+        gender != null && role != null &&
+        roleId.toIntOrNull() != null && depotId.toIntOrNull() != null && salary.toDoubleOrNull() != null &&
+        !isSubmitting
 
     Column(
         modifier = Modifier
@@ -216,23 +235,93 @@ fun RegisterUserScreen(onDone: () -> Unit) {
             }
         }
 
+        Text(
+            text = "Backend linking (temporary — until role/depot lookups are wired up)",
+            style = MaterialTheme.typography.bodyMedium,
+        )
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            OutlinedTextField(
+                value = roleId,
+                onValueChange = { input -> roleId = input.filter { it.isDigit() } },
+                label = { Text("Role ID") },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                modifier = Modifier.weight(1f),
+            )
+            OutlinedTextField(
+                value = depotId,
+                onValueChange = { input -> depotId = input.filter { it.isDigit() } },
+                label = { Text("Depot ID") },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                modifier = Modifier.weight(1f),
+            )
+        }
+
+        OutlinedTextField(
+            value = salary,
+            onValueChange = { input -> salary = input.filter { it.isDigit() || it == '.' } },
+            label = { Text("Salary") },
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+            modifier = Modifier.fillMaxWidth(),
+        )
+
         Button(
             onClick = {
-                AdminDataStore.registerUser(
-                    firstName = firstName.trim(),
-                    lastName = lastName.trim(),
-                    tel = "${country.dialCode} $localNumber",
-                    email = email.trim(),
-                    password = password,
-                    gender = gender!!,
-                    role = role!!,
-                )
-                onDone()
+                val roleIdValue = roleId.toIntOrNull()
+                val depotIdValue = depotId.toIntOrNull()
+                val salaryValue = salary.toDoubleOrNull()
+                if (roleIdValue == null || depotIdValue == null || salaryValue == null) return@Button
+
+                isSubmitting = true
+                scope.launch {
+                    try {
+                        val response = RetrofitClient.adminApi.registerPersonnel(
+                            PersonnelCreateRequest(
+                                role_id = roleIdValue,
+                                depot_id = depotIdValue,
+                                name = "${firstName.trim()} ${lastName.trim()}".trim(),
+                                email = email.trim(),
+                                gender = if (gender == Gender.MALE) "Male" else "Female",
+                                contact = "${country.dialCode}$localNumber",
+                                salary = salaryValue,
+                            ),
+                        )
+                        if (response.isSuccessful) {
+                            AdminDataStore.registerUser(
+                                firstName = firstName.trim(),
+                                lastName = lastName.trim(),
+                                tel = "${country.dialCode} $localNumber",
+                                email = email.trim(),
+                                password = password,
+                                gender = gender!!,
+                                role = role!!,
+                            )
+                            Toast.makeText(context, "User registered successfully", Toast.LENGTH_LONG).show()
+                            onDone()
+                        } else {
+                            Toast.makeText(context, response.readErrorMessage(), Toast.LENGTH_LONG).show()
+                        }
+                    } catch (e: Exception) {
+                        Toast.makeText(context, "Network error: ${e.message}", Toast.LENGTH_LONG).show()
+                    } finally {
+                        isSubmitting = false
+                    }
+                }
             },
             enabled = canSave,
             modifier = Modifier.fillMaxWidth(),
         ) {
-            Text("Save")
+            if (isSubmitting) {
+                CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Color.White, strokeWidth = 2.dp)
+            } else {
+                Text("Save")
+            }
         }
     }
 }

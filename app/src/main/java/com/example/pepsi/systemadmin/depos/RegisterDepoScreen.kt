@@ -5,9 +5,11 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
@@ -19,13 +21,21 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import android.widget.Toast
 import com.example.pepsi.common.data.AdminDataStore
 import com.example.pepsi.common.data.UgandaDistricts
 import com.example.pepsi.common.model.User
+import com.example.pepsi.network.RetrofitClient
+import com.example.pepsi.network.model.DepotCreateRequest
+import com.example.pepsi.network.readErrorMessage
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -35,10 +45,14 @@ fun RegisterDepoScreen(onDone: () -> Unit) {
     var locationMenuExpanded by remember { mutableStateOf(false) }
     var attendant by rememberSaveable { mutableStateOf<String?>(null) }
     var attendantMenuExpanded by remember { mutableStateOf(false) }
+    var isSubmitting by remember { mutableStateOf(false) }
+
+    val scope = rememberCoroutineScope()
+    val context = LocalContext.current
 
     val depoAttendants = AdminDataStore.depoAttendants()
     val selectedAttendant: User? = depoAttendants.firstOrNull { it.id == attendant }
-    val canSave = name.isNotBlank() && location != null
+    val canSave = name.isNotBlank() && location != null && !isSubmitting
 
     Column(
         modifier = Modifier
@@ -123,17 +137,41 @@ fun RegisterDepoScreen(onDone: () -> Unit) {
 
         Button(
             onClick = {
-                AdminDataStore.registerDepo(
-                    name = name.trim(),
-                    location = location!!,
-                    depoAttendantId = attendant,
-                )
-                onDone()
+                isSubmitting = true
+                scope.launch {
+                    try {
+                        val response = RetrofitClient.adminApi.createDepot(
+                            DepotCreateRequest(
+                                name = name.trim(),
+                                location = location!!,
+                            ),
+                        )
+                        if (response.isSuccessful) {
+                            AdminDataStore.registerDepo(
+                                name = name.trim(),
+                                location = location!!,
+                                depoAttendantId = attendant,
+                            )
+                            Toast.makeText(context, "Depot registered successfully", Toast.LENGTH_LONG).show()
+                            onDone()
+                        } else {
+                            Toast.makeText(context, response.readErrorMessage(), Toast.LENGTH_LONG).show()
+                        }
+                    } catch (e: Exception) {
+                        Toast.makeText(context, "Network error: ${e.message}", Toast.LENGTH_LONG).show()
+                    } finally {
+                        isSubmitting = false
+                    }
+                }
             },
             enabled = canSave,
             modifier = Modifier.fillMaxWidth(),
         ) {
-            Text("Save")
+            if (isSubmitting) {
+                CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Color.White, strokeWidth = 2.dp)
+            } else {
+                Text("Save")
+            }
         }
     }
 }
