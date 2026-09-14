@@ -1,18 +1,9 @@
 package com.example.pepsi.ui.profile
 
-import android.Manifest
-import android.content.pm.PackageManager
-import android.graphics.BitmapFactory
-import android.net.Uri
-import android.os.Build
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -21,12 +12,9 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.Logout
-import androidx.compose.material.icons.filled.CameraAlt
-import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenuItem
@@ -40,9 +28,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -52,58 +40,23 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
-import androidx.core.content.ContextCompat
-import com.example.pepsi.data.sample.SampleData
-import com.example.pepsi.notifications.notifySystemAdminOfPasswordChangeRequest
+import com.example.pepsi.data.state.DepoState
 
-private val genderOptions = listOf("Male", "Female", "Other")
+private val genderOptions = listOf("Male", "Female")
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ProfileScreen(
-    onBack: () -> Unit,
-    onLogout: () -> Unit,
-) {
-    val manager = remember { SampleData.manager }
-    val context = LocalContext.current
+fun ProfileScreen(onBack: () -> Unit) {
+    val profile = DepoState.profile.value
 
-    var pictureBitmap by remember { mutableStateOf<ImageBitmap?>(null) }
-    val pickImageLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent(),
-    ) { uri: Uri? ->
-        uri ?: return@rememberLauncherForActivityResult
-        context.contentResolver.openInputStream(uri)?.use { stream ->
-            BitmapFactory.decodeStream(stream)?.let { pictureBitmap = it.asImageBitmap() }
-        }
-    }
-
-    var phone by remember { mutableStateOf(manager.telephone) }
-    var gender by remember { mutableStateOf(manager.gender) }
+    var contact by remember { mutableStateOf(profile.contact) }
+    var gender by remember { mutableStateOf(profile.gender) }
     var genderExpanded by remember { mutableStateOf(false) }
-
-    var passwordChangeRequested by remember { mutableStateOf(false) }
-    val notificationPermissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission(),
-    ) { notifySystemAdminOfPasswordChangeRequest(context, manager.name) }
-
-    fun requestPasswordChange() {
-        passwordChangeRequested = true
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
-            PackageManager.PERMISSION_GRANTED
-        ) {
-            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-        } else {
-            notifySystemAdminOfPasswordChangeRequest(context, manager.name)
-        }
-    }
+    var showPasswordDialog by remember { mutableStateOf(false) }
+    var passwordChangedMessage by remember { mutableStateOf<String?>(null) }
 
     Scaffold(
         topBar = {
@@ -129,53 +82,28 @@ fun ProfileScreen(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    Box(contentAlignment = Alignment.BottomEnd) {
-                        Box(
-                            modifier = Modifier
-                                .size(96.dp)
-                                .clip(CircleShape)
-                                .background(MaterialTheme.colorScheme.primaryContainer),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            val bitmap = pictureBitmap
-                            if (bitmap != null) {
-                                Image(
-                                    bitmap = bitmap,
-                                    contentDescription = "Profile picture",
-                                    contentScale = ContentScale.Crop,
-                                    modifier = Modifier.fillMaxSize(),
-                                )
-                            } else {
-                                Icon(
-                                    Icons.Filled.Person,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(56.dp),
-                                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                                )
-                            }
-                        }
-                        IconButton(
-                            onClick = { pickImageLauncher.launch("image/*") },
-                            modifier = Modifier
-                                .size(32.dp)
-                                .clip(CircleShape)
-                                .background(MaterialTheme.colorScheme.secondary),
-                        ) {
-                            Icon(
-                                Icons.Filled.CameraAlt,
-                                contentDescription = "Change profile picture",
-                                tint = MaterialTheme.colorScheme.onSecondary,
-                            )
-                        }
+                    Box(
+                        modifier = Modifier
+                            .size(96.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.primaryContainer),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            Icons.Filled.Person,
+                            contentDescription = null,
+                            modifier = Modifier.size(56.dp),
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                        )
                     }
                     Text(
-                        text = manager.name,
+                        text = profile.name,
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         modifier = Modifier.padding(top = 8.dp),
                     )
                     Text(
-                        text = "Manager",
+                        text = profile.role,
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -191,7 +119,7 @@ fun ProfileScreen(
             }
             item {
                 OutlinedTextField(
-                    value = manager.name,
+                    value = profile.name,
                     onValueChange = {},
                     readOnly = true,
                     enabled = false,
@@ -202,16 +130,7 @@ fun ProfileScreen(
             }
             item {
                 OutlinedTextField(
-                    value = phone,
-                    onValueChange = { phone = it },
-                    label = { Text("Telephone") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
-            item {
-                OutlinedTextField(
-                    value = manager.email,
+                    value = profile.email,
                     onValueChange = {},
                     readOnly = true,
                     enabled = false,
@@ -222,11 +141,9 @@ fun ProfileScreen(
             }
             item {
                 OutlinedTextField(
-                    value = "••••••••",
-                    onValueChange = {},
-                    readOnly = true,
-                    enabled = false,
-                    label = { Text("Password") },
+                    value = contact,
+                    onValueChange = { contact = it },
+                    label = { Text("Contact Info") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )
@@ -264,7 +181,7 @@ fun ProfileScreen(
             }
             item {
                 OutlinedTextField(
-                    value = manager.role,
+                    value = profile.role,
                     onValueChange = {},
                     readOnly = true,
                     enabled = false,
@@ -277,106 +194,116 @@ fun ProfileScreen(
             item { HorizontalDivider() }
 
             item {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = "Change Password",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                    )
-                    Icon(
-                        Icons.Filled.Lock,
-                        contentDescription = null,
-                        modifier = Modifier
-                            .padding(start = 8.dp)
-                            .size(18.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                Text(
-                    text = "Your current password is shown below for reference. Only a System " +
-                        "Administrator can assign a new one — tap Change Password to notify them.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 4.dp),
-                )
-            }
-            item {
                 OutlinedTextField(
-                    value = manager.password,
-                    onValueChange = {},
-                    readOnly = true,
-                    label = { Text("Current Password") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
-            item {
-                OutlinedTextField(
-                    value = "",
+                    value = "••••••••",
                     onValueChange = {},
                     readOnly = true,
                     enabled = false,
-                    label = { Text("New Password (set by System Administrator)") },
+                    label = { Text("Password") },
                     singleLine = true,
-                    visualTransformation = PasswordVisualTransformation(),
-                    colors = OutlinedTextFieldDefaults.colors(disabledTextColor = MaterialTheme.colorScheme.onSurfaceVariant),
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
-            item {
-                OutlinedTextField(
-                    value = "",
-                    onValueChange = {},
-                    readOnly = true,
-                    enabled = false,
-                    label = { Text("Confirm New Password (set by System Administrator)") },
-                    singleLine = true,
-                    visualTransformation = PasswordVisualTransformation(),
-                    colors = OutlinedTextFieldDefaults.colors(disabledTextColor = MaterialTheme.colorScheme.onSurfaceVariant),
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
             item {
                 Button(
-                    onClick = { requestPasswordChange() },
+                    onClick = { showPasswordDialog = true },
                     modifier = Modifier.fillMaxWidth(),
                 ) {
                     Text("Change Password")
                 }
             }
-            if (passwordChangeRequested) {
+            passwordChangedMessage?.let { message ->
                 item {
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
                     ) {
-                        Text(
-                            text = "Request sent — ${SampleData.systemAdministrator.name} has been " +
-                                "notified to assign you a new password.",
-                            modifier = Modifier.padding(12.dp),
-                        )
+                        Text(text = message, modifier = Modifier.padding(12.dp))
                     }
-                }
-            }
-
-            item { HorizontalDivider() }
-
-            item {
-                OutlinedButton(
-                    onClick = onLogout,
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = MaterialTheme.colorScheme.secondary,
-                    ),
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Icon(
-                        Icons.AutoMirrored.Filled.Logout,
-                        contentDescription = null,
-                        modifier = Modifier.padding(end = 8.dp),
-                    )
-                    Text("Log Out")
                 }
             }
         }
     }
+
+    if (showPasswordDialog) {
+        ChangePasswordDialog(
+            onDismiss = { showPasswordDialog = false },
+            onSave = { current, new ->
+                val success = DepoState.changePassword(current, new)
+                passwordChangedMessage = if (success) {
+                    "Password changed successfully."
+                } else {
+                    "Current password is incorrect."
+                }
+                if (success) showPasswordDialog = false
+            },
+        )
+    }
+}
+
+@Composable
+private fun ChangePasswordDialog(
+    onDismiss: () -> Unit,
+    onSave: (currentPassword: String, newPassword: String) -> Unit,
+) {
+    var currentPassword by remember { mutableStateOf("") }
+    var newPassword by remember { mutableStateOf("") }
+    var confirmPassword by remember { mutableStateOf("") }
+    var error by remember { mutableStateOf<String?>(null) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Change Password") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    value = currentPassword,
+                    onValueChange = { currentPassword = it },
+                    label = { Text("Current Password") },
+                    singleLine = true,
+                    visualTransformation = PasswordVisualTransformation(),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                OutlinedTextField(
+                    value = newPassword,
+                    onValueChange = { newPassword = it },
+                    label = { Text("New Password") },
+                    singleLine = true,
+                    visualTransformation = PasswordVisualTransformation(),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                OutlinedTextField(
+                    value = confirmPassword,
+                    onValueChange = { confirmPassword = it },
+                    label = { Text("Confirm New Password") },
+                    singleLine = true,
+                    visualTransformation = PasswordVisualTransformation(),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                error?.let {
+                    Text(text = it, color = MaterialTheme.colorScheme.error)
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    error = when {
+                        currentPassword.isBlank() || newPassword.isBlank() || confirmPassword.isBlank() ->
+                            "All fields are required."
+                        newPassword != confirmPassword -> "New password and confirmation do not match."
+                        else -> null
+                    }
+                    if (error == null) onSave(currentPassword, newPassword)
+                },
+            ) {
+                Text("Save Changes")
+            }
+        },
+        dismissButton = {
+            OutlinedButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        },
+    )
 }

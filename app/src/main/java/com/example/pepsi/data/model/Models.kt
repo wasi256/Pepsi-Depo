@@ -1,78 +1,60 @@
 package com.example.pepsi.data.model
 
-data class Sale(
-    val productName: String,
-    val quantity: Int,
-    val depoName: String,
-    val date: String,
-)
-
-data class HourlySales(
-    val hourLabel: String,
-    val unitsSold: Int,
-)
-
 data class Product(
     val name: String,
-    val quantity: Int,
-    val manufacturingDate: String,
-    val expiryDate: String,
+    val unitPrice: Int,
 )
 
-data class ProductionDistribution(
+data class StockItem(
     val productName: String,
     val quantity: Int,
+)
+
+data class SaleRecord(
+    val productName: String,
+    val quantity: Int,
+    val amount: Int,
     val date: String,
-    val depoName: String,
 )
 
-data class ProductionEntry(
+data class DeliveryItem(
     val productName: String,
-    val quantity: Int,
-    val manufacturingDate: String,
-    val expiryDate: String,
+    val quantitySent: Int,
 )
 
-data class Depo(
-    val name: String,
-    val location: String,
-    val attendantName: String,
-)
-
-data class StockLevel(
-    val productName: String,
-    val stockLevel: Int,
-)
-
-enum class WorkerRole {
-    SystemAdmin,
-    Factory,
-    DepoAttendant,
+enum class DeliveryStatus {
+    Pending,
+    Confirmed,
+    Rejected,
 }
 
-data class Worker(
-    val name: String,
-    val telephone: String,
-    val role: WorkerRole,
+data class Delivery(
+    val id: String,
+    val factoryManagerName: String,
+    val date: String,
+    val items: List<DeliveryItem>,
+    val status: DeliveryStatus,
+    val responseMessage: String? = null,
 )
 
-enum class TrendPeriod(val label: String) {
-    Daily("Daily"),
+enum class RangePeriod(val label: String) {
+    Today("Today"),
     Weekly("Weekly"),
     Monthly("Monthly"),
     Yearly("Yearly"),
 }
 
-data class TrendPoint(
+data class ChartEntry(
     val label: String,
     val value: Int,
 )
 
-data class ManagerProfile(
+data class DepoAttendantProfile(
     val name: String,
-    val telephone: String,
+    val role: String,
     val email: String,
-    val password: String,
+    val contact: String,
     val gender: String,
-    val role: String = "Manager",
+    val password: String,
+    val depoName: String,
 )

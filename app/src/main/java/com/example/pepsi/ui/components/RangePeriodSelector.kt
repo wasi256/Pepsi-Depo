@@ -11,13 +11,13 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.example.pepsi.data.model.TrendPeriod
+import com.example.pepsi.data.model.RangePeriod
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TrendPeriodSelector(
-    selected: TrendPeriod,
-    onSelect: (TrendPeriod) -> Unit,
+fun RangePeriodSelector(
+    selected: RangePeriod,
+    onSelect: (RangePeriod) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Row(
@@ -26,7 +26,7 @@ fun TrendPeriodSelector(
             .horizontalScroll(rememberScrollState()),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        TrendPeriod.entries.forEach { period ->
+        RangePeriod.entries.forEach { period ->
             FilterChip(
                 selected = period == selected,
                 onClick = { onSelect(period) },

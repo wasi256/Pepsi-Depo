@@ -12,7 +12,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 
-data class KpiData(val label: String, val value: Int)
+data class KpiData(val label: String, val value: String)
 
 @Composable
 fun KpiCard(data: KpiData, modifier: Modifier = Modifier) {
@@ -24,7 +24,7 @@ fun KpiCard(data: KpiData, modifier: Modifier = Modifier) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(text = data.label, style = MaterialTheme.typography.labelMedium)
             Text(
-                text = data.value.toString(),
+                text = data.value,
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.primary,
