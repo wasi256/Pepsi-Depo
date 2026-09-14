@@ -13,11 +13,15 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.example.pepsi.ui.overview.OverviewScreen
+import com.example.pepsi.ui.production.ProductionRecordsScreen
+import com.example.pepsi.ui.production.RecordProductionScreen
 import com.example.pepsi.ui.profile.ProfileScreen
 import com.example.pepsi.ui.receive.ReceiveProductsScreen
 import com.example.pepsi.ui.saleshistory.SalesHistoryScreen
 import com.example.pepsi.ui.sell.SellProductsScreen
 import com.example.pepsi.ui.stocks.ViewStocksScreen
+import com.example.pepsi.ui.supply.RecordSupplyScreen
+import com.example.pepsi.ui.supply.SupplyRecordsScreen
 import kotlinx.coroutines.launch
 
 @Composable
@@ -69,6 +73,18 @@ fun PepsiNavHost(navController: NavHostController = rememberNavController()) {
             }
             composable(Screen.ViewStocks.route) {
                 ViewStocksScreen(onMenuClick = ::openDrawer)
+            }
+            composable(Screen.RecordProduction.route) {
+                RecordProductionScreen(onMenuClick = ::openDrawer)
+            }
+            composable(Screen.RecordSupply.route) {
+                RecordSupplyScreen(onMenuClick = ::openDrawer)
+            }
+            composable(Screen.ProductionRecords.route) {
+                ProductionRecordsScreen(onMenuClick = ::openDrawer)
+            }
+            composable(Screen.SupplyRecords.route) {
+                SupplyRecordsScreen(onMenuClick = ::openDrawer)
             }
             composable(Screen.Profile.route) {
                 ProfileScreen(onBack = { navController.popBackStack() })
