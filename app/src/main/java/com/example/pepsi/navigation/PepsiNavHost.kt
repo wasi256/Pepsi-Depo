@@ -12,12 +12,17 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import com.example.pepsi.ui.depos.DeposScreen
+import com.example.pepsi.ui.overview.FactoryOverviewScreen
 import com.example.pepsi.ui.overview.OverviewScreen
-import com.example.pepsi.ui.products.ProductsScreen
+import com.example.pepsi.ui.production.ProductionRecordsScreen
+import com.example.pepsi.ui.production.RecordProductionScreen
 import com.example.pepsi.ui.profile.ProfileScreen
-import com.example.pepsi.ui.sales.SalesScreen
-import com.example.pepsi.ui.workers.WorkersScreen
+import com.example.pepsi.ui.receive.ReceiveProductsScreen
+import com.example.pepsi.ui.saleshistory.SalesHistoryScreen
+import com.example.pepsi.ui.sell.SellProductsScreen
+import com.example.pepsi.ui.stocks.ViewStocksScreen
+import com.example.pepsi.ui.supply.RecordSupplyScreen
+import com.example.pepsi.ui.supply.SupplyRecordsScreen
 import kotlinx.coroutines.launch
 
 @Composable
@@ -29,7 +34,7 @@ fun PepsiNavHost(navController: NavHostController = rememberNavController()) {
     fun navigateTo(screen: Screen) {
         scope.launch { drawerState.close() }
         navController.navigate(screen.route) {
-            popUpTo(Screen.Overview.route) { inclusive = false }
+            popUpTo(Screen.DepotOverview.route) { inclusive = false }
             launchSingleTop = true
         }
     }
@@ -46,34 +51,53 @@ fun PepsiNavHost(navController: NavHostController = rememberNavController()) {
     ) {
         NavHost(
             navController = navController,
-            startDestination = Screen.Overview.route,
+            startDestination = Screen.DepotOverview.route,
             modifier = Modifier.fillMaxSize(),
         ) {
-            composable(Screen.Overview.route) {
+            composable(Screen.DepotOverview.route) {
                 OverviewScreen(
                     onMenuClick = ::openDrawer,
-                    onViewCurrentStock = { navigateTo(Screen.Depos) },
-                    onViewHistory = { navigateTo(Screen.Products) },
-                    onAdminClick = { navController.navigate(Screen.Profile.route) },
+                    onProfileClick = { navController.navigate(Screen.Profile.route) },
+                    onViewStocks = { navigateTo(Screen.ViewStocks) },
+                    onSellProducts = { navigateTo(Screen.SellProducts) },
+                    onReceiveProducts = { navigateTo(Screen.ReceiveProducts) },
                 )
             }
-            composable(Screen.Sales.route) {
-                SalesScreen(onMenuClick = ::openDrawer)
+            composable(Screen.SalesHistory.route) {
+                SalesHistoryScreen(onMenuClick = ::openDrawer)
             }
-            composable(Screen.Products.route) {
-                ProductsScreen(onMenuClick = ::openDrawer)
+            composable(Screen.ReceiveProducts.route) {
+                ReceiveProductsScreen(onMenuClick = ::openDrawer)
             }
-            composable(Screen.Depos.route) {
-                DeposScreen(onMenuClick = ::openDrawer)
+            composable(Screen.SellProducts.route) {
+                SellProductsScreen(onMenuClick = ::openDrawer)
             }
-            composable(Screen.Workers.route) {
-                WorkersScreen(onMenuClick = ::openDrawer)
+            composable(Screen.ViewStocks.route) {
+                ViewStocksScreen(onMenuClick = ::openDrawer)
+            }
+            composable(Screen.FactoryOverview.route) {
+                FactoryOverviewScreen(
+                    onMenuClick = ::openDrawer,
+                    onRecordProduction = { navigateTo(Screen.RecordProduction) },
+                    onRecordSupply = { navigateTo(Screen.RecordSupply) },
+                    onViewProductionRecords = { navigateTo(Screen.ProductionRecords) },
+                    onViewSupplyRecords = { navigateTo(Screen.SupplyRecords) },
+                )
+            }
+            composable(Screen.RecordProduction.route) {
+                RecordProductionScreen(onMenuClick = ::openDrawer)
+            }
+            composable(Screen.RecordSupply.route) {
+                RecordSupplyScreen(onMenuClick = ::openDrawer)
+            }
+            composable(Screen.ProductionRecords.route) {
+                ProductionRecordsScreen(onMenuClick = ::openDrawer)
+            }
+            composable(Screen.SupplyRecords.route) {
+                SupplyRecordsScreen(onMenuClick = ::openDrawer)
             }
             composable(Screen.Profile.route) {
-                ProfileScreen(
-                    onBack = { navController.popBackStack() },
-                    onLogout = { navigateTo(Screen.Overview) },
-                )
+                ProfileScreen(onBack = { navController.popBackStack() })
             }
         }
     }

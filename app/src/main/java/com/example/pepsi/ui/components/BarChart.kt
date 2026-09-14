@@ -19,15 +19,15 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.pepsi.data.model.HourlySales
+import com.example.pepsi.data.model.ChartEntry
 
 @Composable
-fun HourlySalesBarChart(
-    data: List<HourlySales>,
+fun EntryBarChart(
+    data: List<ChartEntry>,
     modifier: Modifier = Modifier,
     barColor: Color = MaterialTheme.colorScheme.primary,
 ) {
-    val maxValue = (data.maxOfOrNull { it.unitsSold } ?: 0).coerceAtLeast(1)
+    val maxValue = (data.maxOfOrNull { it.value } ?: 0).coerceAtLeast(1)
     val labelColor = MaterialTheme.colorScheme.onSurface
 
     Column(modifier = modifier.fillMaxWidth()) {
@@ -49,8 +49,8 @@ fun HourlySalesBarChart(
                 strokeWidth = 2f,
             )
 
-            data.forEachIndexed { index, hourly ->
-                val barHeight = size.height * (hourly.unitsSold.toFloat() / maxValue)
+            data.forEachIndexed { index, entry ->
+                val barHeight = size.height * (entry.value.toFloat() / maxValue)
                 val left = index * (barWidth + gap)
                 val top = size.height - barHeight
 
@@ -62,7 +62,7 @@ fun HourlySalesBarChart(
                 )
 
                 drawContext.canvas.nativeCanvas.drawText(
-                    hourly.unitsSold.toString(),
+                    entry.value.toString(),
                     left + barWidth / 2,
                     (top - 8f).coerceAtLeast(12f),
                     android.graphics.Paint().apply {
@@ -74,9 +74,9 @@ fun HourlySalesBarChart(
             }
         }
         Row(modifier = Modifier.fillMaxWidth()) {
-            data.forEach { hourly ->
+            data.forEach { entry ->
                 Text(
-                    text = hourly.hourLabel,
+                    text = entry.label,
                     style = MaterialTheme.typography.labelMedium.copy(fontSize = 10.sp),
                     color = labelColor,
                     textAlign = TextAlign.Center,
