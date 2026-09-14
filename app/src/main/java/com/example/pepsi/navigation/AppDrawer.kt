@@ -13,8 +13,10 @@ import com.example.pepsi.theme.PepsiTypography
 
 @Composable
 fun AppDrawer(
+    screens: List<Screen>,
     currentRoute: String?,
     onItemClick: (Screen) -> Unit,
+    onSwitchRole: () -> Unit,
 ) {
     ModalDrawerSheet(
         modifier = Modifier.fillMaxWidth(0.75f),
@@ -25,7 +27,7 @@ fun AppDrawer(
             modifier = Modifier.padding(16.dp),
         )
         HorizontalDivider()
-        drawerScreens.forEach { screen ->
+        screens.forEach { screen ->
             NavigationDrawerItem(
                 label = { Text(screen.label) },
                 selected = screen.route == currentRoute,
@@ -33,5 +35,12 @@ fun AppDrawer(
                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
             )
         }
+        HorizontalDivider()
+        NavigationDrawerItem(
+            label = { Text("Switch Role") },
+            selected = false,
+            onClick = onSwitchRole,
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+        )
     }
 }
