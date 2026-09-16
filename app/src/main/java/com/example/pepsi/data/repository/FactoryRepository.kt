@@ -60,12 +60,20 @@ object FactoryRepository {
         RetrofitClient.adminApi.getProducts(pageSize = 100).items
     }
 
+    suspend fun fetchProductCount(): Result<Int> = call {
+        RetrofitClient.adminApi.getProducts(pageSize = 1).total
+    }
+
     suspend fun fetchQuantities(): Result<List<QuantityRead>> = call {
         RetrofitClient.adminApi.getQuantities(pageSize = 100).items
     }
 
     suspend fun fetchDepots(): Result<List<DepotRead>> = call {
         RetrofitClient.adminApi.getDepots(pageSize = 100).items
+    }
+
+    suspend fun fetchDepotCount(): Result<Int> = call {
+        RetrofitClient.adminApi.getDepots(pageSize = 1).total
     }
 
     /** Finds the "Depot/Depo Attendant" role and returns personnel assigned to it. */
@@ -108,8 +116,8 @@ object FactoryRepository {
         RetrofitClient.factoryApi.createSupply(SupplyCreate(productId, quantityId, amount, depotId, supplierId))
     }
 
-    suspend fun fetchSupplyHistory(limit: Int = 10): Result<List<SupplyResponse>> = call {
-        RetrofitClient.factoryApi.getSupplyHistory(limit = limit)
+    suspend fun fetchSupplyHistory(limit: Int = 10, depotId: Int? = null): Result<List<SupplyResponse>> = call {
+        RetrofitClient.factoryApi.getSupplyHistory(limit = limit, depotId = depotId)
     }
 
     suspend fun deleteSupply(supplyId: Int): Result<Unit> = call {
