@@ -8,15 +8,19 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.DropdownMenuItem
@@ -25,42 +29,122 @@ import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuAnchorType
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.example.pepsi.data.model.FactoryProduct
-import com.example.pepsi.data.model.ProductionDistribution
-import com.example.pepsi.data.model.ProductionEntry
-import com.example.pepsi.data.sample.FactorySampleData
+import com.example.pepsi.data.network.model.DepotRead
+import com.example.pepsi.data.network.model.FactoryStockResponse
+import com.example.pepsi.data.network.model.ProductRead
+import com.example.pepsi.data.network.model.ProductionResponse
+import com.example.pepsi.data.network.model.QuantityRead
+import com.example.pepsi.data.network.model.SupplyResponse
+import com.example.pepsi.data.repository.FactoryRepository
 import com.example.pepsi.ui.components.PepsiTopBar
 import com.example.pepsi.ui.components.QuantityStepperField
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
-import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
 
+private fun formatIsoInstant(millis: Long): String {
+    val formatter = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US)
+    formatter.timeZone = TimeZone.getTimeZone("UTC")
+    return formatter.format(Date(millis))
+}
+
+private fun formatDisplayDate(iso: String?): String {
+    if (iso == null) return "—"
+    return iso.substringBefore("T")
+}
+
+private data class ProductsUiState(
+    val products: List<ProductRead> = emptyList(),
+    val quantities: List<QuantityRead> = emptyList(),
+    val depots: List<DepotRead> = emptyList(),
+    val stock: List<FactoryStockResponse> = emptyList(),
+    val productionHistory: List<ProductionResponse> = emptyList(),
+    val supplyHistory: List<SupplyResponse> = emptyList(),
+)
+
 @Composable
 fun ProductsScreen(onMenuClick: () -> Unit) {
-    val productionEntries = remember { mutableStateListOf<ProductionEntry>() }
-    val distributions = remember { mutableStateListOf(*FactorySampleData.productionDistributions.toTypedArray()) }
+    ProductsContent(onMenuClick = onMenuClick)
+}
+
+@Composable
+private fun ProductsContent(onMenuClick: () -> Unit) {
+    var uiState by remember { mutableStateOf(ProductsUiState()) }
+    var isLoading by remember { mutableStateOf(true) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+    var reloadKey by remember { mutableStateOf(0) }
+
+    LaunchedEffect(reloadKey) {
+        isLoading = true
+        errorMessage = null
+        coroutineScope {
+            val productsDeferred = async { FactoryRepository.fetchProducts() }
+            val quantitiesDeferred = async { FactoryRepository.fetchQuantities() }
+            val depotsDeferred = async { FactoryRepository.fetchDepots() }
+            val stockDeferred = async { FactoryRepository.fetchStock() }
+            val productionDeferred = async { FactoryRepository.fetchProductionHistory() }
+            val supplyDeferred = async { FactoryRepository.fetchSupplyHistory() }
+
+            val results = awaitAll(
+                productsDeferred, quantitiesDeferred, depotsDeferred,
+                stockDeferred, productionDeferred, supplyDeferred,
+            )
+            val firstFailure = results.firstOrNull { it.isFailure }
+            if (firstFailure != null) {
+                errorMessage = firstFailure.exceptionOrNull()?.message
+            }
+            uiState = ProductsUiState(
+                products = productsDeferred.await().getOrDefault(emptyList()),
+                quantities = quantitiesDeferred.await().getOrDefault(emptyList()),
+                depots = depotsDeferred.await().getOrDefault(emptyList()),
+                stock = stockDeferred.await().getOrDefault(emptyList()),
+                productionHistory = productionDeferred.await().getOrDefault(emptyList()),
+                supplyHistory = supplyDeferred.await().getOrDefault(emptyList()),
+            )
+        }
+        isLoading = false
+    }
 
     Scaffold(
-        topBar = { PepsiTopBar(title = "Products", onMenuClick = onMenuClick) },
+        topBar = {
+            PepsiTopBar(title = "Products", onMenuClick = onMenuClick)
+        },
     ) { padding ->
+        if (isLoading && uiState.products.isEmpty()) {
+            Box(
+                modifier = Modifier.fillMaxSize().padding(padding),
+                contentAlignment = Alignment.Center,
+            ) {
+                CircularProgressIndicator()
+            }
+            return@Scaffold
+        }
+
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
@@ -69,17 +153,32 @@ fun ProductsScreen(onMenuClick: () -> Unit) {
             verticalArrangement = Arrangement.spacedBy(20.dp),
         ) {
             item {
-                SectionHeader("Products")
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                ) {
+                    SectionHeader("Current Stock", modifier = Modifier.weight(1f))
+                    IconButton(onClick = { reloadKey++ }) {
+                        Icon(Icons.Filled.Refresh, contentDescription = "Refresh")
+                    }
+                }
+            }
+            errorMessage?.let {
+                item {
+                    Text(
+                        text = it,
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.padding(horizontal = 16.dp),
+                    )
+                }
             }
             item {
-                ProductsRow(FactorySampleData.products)
-            }
-
-            item {
-                SectionHeader("Production Distribution")
-            }
-            item {
-                DistributionsRow(distributions)
+                if (uiState.stock.isEmpty()) {
+                    EmptyHint("No stock recorded yet.")
+                } else {
+                    StockRow(uiState.stock)
+                }
             }
 
             item { HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp)) }
@@ -87,17 +186,46 @@ fun ProductsScreen(onMenuClick: () -> Unit) {
             item {
                 RecordProductionSection(
                     modifier = Modifier.padding(horizontal = 16.dp),
-                    entries = productionEntries,
-                    onRecord = { entry -> productionEntries.add(0, entry) },
+                    products = uiState.products,
+                    quantities = uiState.quantities,
+                    onRecorded = { reloadKey++ },
                 )
+            }
+
+            item {
+                SectionHeader("Production History", modifier = Modifier.padding(horizontal = 16.dp))
+            }
+            item {
+                if (uiState.productionHistory.isEmpty()) {
+                    EmptyHint("No production recorded yet.")
+                } else {
+                    ProductionHistoryRow(uiState.productionHistory)
+                }
             }
 
             item { HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp)) }
 
             item {
-                CreateDeliverySection(
+                CreateSupplySection(
                     modifier = Modifier.padding(horizontal = 16.dp),
-                    onCreateDelivery = { delivery -> distributions.add(0, delivery) },
+                    products = uiState.products,
+                    quantities = uiState.quantities,
+                    depots = uiState.depots,
+                    onSupplied = { reloadKey++ },
+                )
+            }
+
+            item {
+                SectionHeader("Supply History", modifier = Modifier.padding(horizontal = 16.dp))
+            }
+            if (uiState.supplyHistory.isEmpty()) {
+                item { EmptyHint("No supplies recorded yet.", modifier = Modifier.padding(horizontal = 16.dp)) }
+            }
+            items(uiState.supplyHistory) { supply ->
+                SupplyRow(
+                    supply = supply,
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                    onDeleted = { reloadKey++ },
                 )
             }
         }
@@ -105,17 +233,27 @@ fun ProductsScreen(onMenuClick: () -> Unit) {
 }
 
 @Composable
-private fun SectionHeader(title: String) {
+private fun SectionHeader(title: String, modifier: Modifier = Modifier) {
     Text(
         text = title,
         style = MaterialTheme.typography.titleMedium,
         fontWeight = FontWeight.Bold,
-        modifier = Modifier.padding(horizontal = 16.dp),
+        modifier = modifier,
     )
 }
 
 @Composable
-private fun ProductsRow(products: List<FactoryProduct>) {
+private fun EmptyHint(text: String, modifier: Modifier = Modifier) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = modifier.padding(horizontal = 16.dp),
+    )
+}
+
+@Composable
+private fun StockRow(stock: List<FactoryStockResponse>) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -123,20 +261,19 @@ private fun ProductsRow(products: List<FactoryProduct>) {
             .padding(horizontal = 16.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        products.forEach { product ->
+        stock.forEach { item ->
             Card(modifier = Modifier.width(200.dp)) {
                 Column(modifier = Modifier.padding(12.dp)) {
-                    Text(text = product.name, fontWeight = FontWeight.Bold)
+                    Text(text = item.productName, fontWeight = FontWeight.Bold)
+                    item.quantityValue?.let {
+                        Text(text = "Unit: $it", style = MaterialTheme.typography.bodyMedium)
+                    }
                     Text(
-                        text = "Quantity: ${product.quantity}",
+                        text = "Available: ${item.availableQuantity}",
                         style = MaterialTheme.typography.bodyMedium,
                     )
                     Text(
-                        text = "Manufactured: ${product.manufacturingDate}",
-                        style = MaterialTheme.typography.bodyMedium,
-                    )
-                    Text(
-                        text = "Expires: ${product.expiryDate}",
+                        text = "Updated: ${formatDisplayDate(item.updatedDate)}",
                         style = MaterialTheme.typography.bodyMedium,
                     )
                 }
@@ -146,7 +283,7 @@ private fun ProductsRow(products: List<FactoryProduct>) {
 }
 
 @Composable
-private fun DistributionsRow(distributions: List<ProductionDistribution>) {
+private fun ProductionHistoryRow(entries: List<ProductionResponse>) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -154,115 +291,120 @@ private fun DistributionsRow(distributions: List<ProductionDistribution>) {
             .padding(horizontal = 16.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        distributions.forEach { distribution ->
+        entries.forEach { entry ->
             Card(modifier = Modifier.width(200.dp)) {
                 Column(modifier = Modifier.padding(12.dp)) {
-                    Text(text = distribution.productName, fontWeight = FontWeight.Bold)
+                    Text(text = entry.productName, fontWeight = FontWeight.Bold)
+                    entry.quantityValue?.let {
+                        Text(text = "Unit: $it", style = MaterialTheme.typography.bodyMedium)
+                    }
                     Text(
-                        text = "Quantity: ${distribution.quantity}",
+                        text = "Produced: ${entry.quantityProduced}",
                         style = MaterialTheme.typography.bodyMedium,
                     )
-                    Text(text = "Date: ${distribution.date}", style = MaterialTheme.typography.bodyMedium)
                     Text(
-                        text = "Depo: ${distribution.depoName}",
+                        text = "Date: ${formatDisplayDate(entry.productionDate)}",
                         style = MaterialTheme.typography.bodyMedium,
                     )
                 }
             }
         }
     }
-}
-
-private const val EXPIRY_YEARS = 5
-
-private fun formatDateMillis(millis: Long): String {
-    val formatter = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
-    formatter.timeZone = TimeZone.getTimeZone("UTC")
-    return formatter.format(Date(millis))
-}
-
-private fun addYears(millis: Long, years: Int): Long {
-    val calendar = Calendar.getInstance(TimeZone.getTimeZone("UTC"))
-    calendar.timeInMillis = millis
-    calendar.add(Calendar.YEAR, years)
-    return calendar.timeInMillis
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun RecordProductionSection(
     modifier: Modifier = Modifier,
-    entries: List<ProductionEntry>,
-    onRecord: (ProductionEntry) -> Unit,
+    products: List<ProductRead>,
+    quantities: List<QuantityRead>,
+    onRecorded: () -> Unit,
 ) {
-    val knownProductNames = remember { FactorySampleData.products.map { it.name }.distinct() }
+    val scope = rememberCoroutineScope()
 
-    var productName by remember { mutableStateOf("") }
-    var productNameExpanded by remember { mutableStateOf(false) }
-    var quantity by remember { mutableStateOf("") }
-    var manufacturingDateMillis by remember { mutableStateOf<Long?>(null) }
+    var productExpanded by remember { mutableStateOf(false) }
+    var selectedProduct by remember { mutableStateOf<ProductRead?>(null) }
+    var quantityExpanded by remember { mutableStateOf(false) }
+    var selectedQuantity by remember { mutableStateOf<QuantityRead?>(null) }
+    var quantityProduced by remember { mutableStateOf("") }
+    var productionDateMillis by remember { mutableStateOf<Long?>(null) }
     var showDatePicker by remember { mutableStateOf(false) }
-
-    val manufacturingDateText = manufacturingDateMillis?.let { formatDateMillis(it) } ?: ""
-    val expiryDateText = manufacturingDateMillis?.let { formatDateMillis(addYears(it, EXPIRY_YEARS)) } ?: ""
+    var isSubmitting by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+    var confirmation by remember { mutableStateOf<String?>(null) }
 
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(
-            text = "Record Production",
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
-        )
+        SectionHeader("Record Production")
 
         ExposedDropdownMenuBox(
-            expanded = productNameExpanded,
-            onExpandedChange = { productNameExpanded = it },
+            expanded = productExpanded,
+            onExpandedChange = { productExpanded = it },
         ) {
             OutlinedTextField(
-                value = productName,
-                onValueChange = {
-                    productName = it
-                    productNameExpanded = true
-                },
-                label = { Text("Product Name") },
-                singleLine = true,
-                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = productNameExpanded) },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .menuAnchor(MenuAnchorType.PrimaryEditable),
+                value = selectedProduct?.name ?: "",
+                onValueChange = {},
+                readOnly = true,
+                label = { Text("Product") },
+                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = productExpanded) },
+                modifier = Modifier.fillMaxWidth().menuAnchor(MenuAnchorType.PrimaryNotEditable),
             )
-            val suggestions = knownProductNames.filter {
-                productName.isBlank() || it.contains(productName, ignoreCase = true)
+            ExposedDropdownMenu(
+                expanded = productExpanded,
+                onDismissRequest = { productExpanded = false },
+            ) {
+                products.forEach { product ->
+                    DropdownMenuItem(
+                        text = { Text(product.name) },
+                        onClick = {
+                            selectedProduct = product
+                            productExpanded = false
+                        },
+                    )
+                }
             }
-            if (suggestions.isNotEmpty()) {
-                ExposedDropdownMenu(
-                    expanded = productNameExpanded,
-                    onDismissRequest = { productNameExpanded = false },
-                ) {
-                    suggestions.forEach { name ->
-                        DropdownMenuItem(
-                            text = { Text(name) },
-                            onClick = {
-                                productName = name
-                                productNameExpanded = false
-                            },
-                        )
-                    }
+        }
+
+        ExposedDropdownMenuBox(
+            expanded = quantityExpanded,
+            onExpandedChange = { quantityExpanded = it },
+        ) {
+            OutlinedTextField(
+                value = selectedQuantity?.quantity ?: "",
+                onValueChange = {},
+                readOnly = true,
+                label = { Text("Quantity (unit size)") },
+                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = quantityExpanded) },
+                modifier = Modifier.fillMaxWidth().menuAnchor(MenuAnchorType.PrimaryNotEditable),
+            )
+            ExposedDropdownMenu(
+                expanded = quantityExpanded,
+                onDismissRequest = { quantityExpanded = false },
+            ) {
+                quantities.forEach { quantity ->
+                    DropdownMenuItem(
+                        text = { Text(quantity.quantity) },
+                        onClick = {
+                            selectedQuantity = quantity
+                            quantityExpanded = false
+                        },
+                    )
                 }
             }
         }
 
         QuantityStepperField(
-            quantity = quantity,
-            onQuantityChange = { quantity = it },
+            quantity = quantityProduced,
+            onQuantityChange = { quantityProduced = it },
+            label = "Quantity Produced",
         )
 
         Box(modifier = Modifier.fillMaxWidth()) {
             OutlinedTextField(
-                value = manufacturingDateText,
+                value = productionDateMillis?.let { formatIsoInstant(it).substringBefore("T") } ?: "Today (default)",
                 onValueChange = {},
                 readOnly = true,
-                label = { Text("Manufacturing Date") },
-                trailingIcon = { Icon(Icons.Filled.DateRange, contentDescription = "Pick manufacturing date") },
+                label = { Text("Production Date (optional)") },
+                trailingIcon = { Icon(Icons.Filled.DateRange, contentDescription = "Pick production date") },
                 modifier = Modifier.fillMaxWidth(),
             )
             Box(
@@ -272,87 +414,70 @@ private fun RecordProductionSection(
             )
         }
 
-        OutlinedTextField(
-            value = expiryDateText,
-            onValueChange = {},
-            readOnly = true,
-            enabled = false,
-            label = { Text("Expiry Date (auto, +$EXPIRY_YEARS years)") },
-            modifier = Modifier.fillMaxWidth(),
-        )
+        errorMessage?.let {
+            Text(text = it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
+        }
 
         Button(
             onClick = {
-                val qty = quantity.toIntOrNull() ?: return@Button
-                val manufactureMillis = manufacturingDateMillis ?: return@Button
-                if (productName.isBlank() || qty <= 0) return@Button
-                onRecord(
-                    ProductionEntry(
-                        productName = productName.trim(),
-                        quantity = qty,
-                        manufacturingDate = formatDateMillis(manufactureMillis),
-                        expiryDate = formatDateMillis(addYears(manufactureMillis, EXPIRY_YEARS)),
-                    ),
-                )
-                productName = ""
-                quantity = ""
-                manufacturingDateMillis = null
+                val product = selectedProduct ?: return@Button
+                val quantity = selectedQuantity ?: return@Button
+                val qty = quantityProduced.toIntOrNull() ?: return@Button
+                if (qty <= 0) return@Button
+                isSubmitting = true
+                errorMessage = null
+                scope.launch {
+                    FactoryRepository.recordProduction(
+                        productId = product.id,
+                        quantityId = quantity.id,
+                        quantityProduced = qty,
+                        productionDate = productionDateMillis?.let { formatIsoInstant(it) },
+                    ).onSuccess {
+                        confirmation = "Recorded $qty × ${quantity.quantity} of ${product.name}."
+                        selectedProduct = null
+                        selectedQuantity = null
+                        quantityProduced = ""
+                        productionDateMillis = null
+                        onRecorded()
+                    }.onFailure {
+                        errorMessage = it.message
+                    }
+                    isSubmitting = false
+                }
             },
-            enabled = productName.isNotBlank() &&
-                manufacturingDateMillis != null &&
-                quantity.toIntOrNull()?.let { it > 0 } == true,
+            enabled = !isSubmitting && selectedProduct != null && selectedQuantity != null &&
+                quantityProduced.toIntOrNull()?.let { it > 0 } == true,
             modifier = Modifier.fillMaxWidth(),
         ) {
-            Text("Record Production")
+            if (isSubmitting) {
+                CircularProgressIndicator(modifier = Modifier.height(20.dp))
+            } else {
+                Text("Record Production")
+            }
         }
 
-        if (entries.isNotEmpty()) {
-            Text(
-                text = "Recently Recorded",
-                style = MaterialTheme.typography.labelMedium,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(top = 8.dp),
-            )
-            entries.forEach { entry ->
-                Card(modifier = Modifier.fillMaxWidth()) {
-                    Column(modifier = Modifier.padding(12.dp)) {
-                        Text(text = entry.productName, fontWeight = FontWeight.Bold)
-                        Text(
-                            text = "Quantity: ${entry.quantity}",
-                            style = MaterialTheme.typography.bodyMedium,
-                        )
-                        Text(
-                            text = "Manufactured: ${entry.manufacturingDate}",
-                            style = MaterialTheme.typography.bodyMedium,
-                        )
-                        Text(
-                            text = "Expires: ${entry.expiryDate}",
-                            style = MaterialTheme.typography.bodyMedium,
-                        )
-                    }
-                }
+        confirmation?.let {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
+            ) {
+                Text(text = it, modifier = Modifier.padding(12.dp))
             }
         }
     }
 
     if (showDatePicker) {
-        val datePickerState = rememberDatePickerState(initialSelectedDateMillis = manufacturingDateMillis)
+        val datePickerState = rememberDatePickerState(initialSelectedDateMillis = productionDateMillis)
         DatePickerDialog(
             onDismissRequest = { showDatePicker = false },
             confirmButton = {
-                TextButton(
-                    onClick = {
-                        manufacturingDateMillis = datePickerState.selectedDateMillis
-                        showDatePicker = false
-                    },
-                ) {
-                    Text("OK")
-                }
+                TextButton(onClick = {
+                    productionDateMillis = datePickerState.selectedDateMillis
+                    showDatePicker = false
+                }) { Text("OK") }
             },
             dismissButton = {
-                TextButton(onClick = { showDatePicker = false }) {
-                    Text("Cancel")
-                }
+                TextButton(onClick = { showDatePicker = false }) { Text("Cancel") }
             },
         ) {
             DatePicker(state = datePickerState)
@@ -362,117 +487,149 @@ private fun RecordProductionSection(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun CreateDeliverySection(
+private fun CreateSupplySection(
     modifier: Modifier = Modifier,
-    onCreateDelivery: (ProductionDistribution) -> Unit,
+    products: List<ProductRead>,
+    quantities: List<QuantityRead>,
+    depots: List<DepotRead>,
+    onSupplied: () -> Unit,
 ) {
-    var depoExpanded by remember { mutableStateOf(false) }
-    var selectedDepo by remember { mutableStateOf<String?>(null) }
+    val scope = rememberCoroutineScope()
+
+    var depotExpanded by remember { mutableStateOf(false) }
+    var selectedDepot by remember { mutableStateOf<DepotRead?>(null) }
     var productExpanded by remember { mutableStateOf(false) }
-    var selectedProduct by remember { mutableStateOf<String?>(null) }
-    var quantity by remember { mutableStateOf("") }
+    var selectedProduct by remember { mutableStateOf<ProductRead?>(null) }
+    var quantityExpanded by remember { mutableStateOf(false) }
+    var selectedQuantity by remember { mutableStateOf<QuantityRead?>(null) }
+    var amount by remember { mutableStateOf("") }
+    var supplierId by remember { mutableStateOf("") }
+    var isSubmitting by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
     var confirmation by remember { mutableStateOf<String?>(null) }
 
-    val availableProducts = selectedDepo
-        ?.let { FactorySampleData.depoStock[it]?.map { stock -> stock.productName } }
-        ?.takeIf { it.isNotEmpty() }
-        ?: FactorySampleData.products.map { it.name }
-
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        SectionHeader("Create Supply")
         Text(
-            text = "Create Delivery",
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
+            text = "No sign-in yet, so enter your personnel ID manually for now.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
 
-        ExposedDropdownMenuBox(
-            expanded = depoExpanded,
-            onExpandedChange = { depoExpanded = it },
-        ) {
+        ExposedDropdownMenuBox(expanded = depotExpanded, onExpandedChange = { depotExpanded = it }) {
             OutlinedTextField(
-                value = selectedDepo ?: "",
+                value = selectedDepot?.name ?: "",
                 onValueChange = {},
                 readOnly = true,
                 label = { Text("Depo Name") },
-                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = depoExpanded) },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .menuAnchor(MenuAnchorType.PrimaryNotEditable),
+                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = depotExpanded) },
+                modifier = Modifier.fillMaxWidth().menuAnchor(MenuAnchorType.PrimaryNotEditable),
             )
-            ExposedDropdownMenu(
-                expanded = depoExpanded,
-                onDismissRequest = { depoExpanded = false },
-            ) {
-                FactorySampleData.depos.forEach { depo ->
+            ExposedDropdownMenu(expanded = depotExpanded, onDismissRequest = { depotExpanded = false }) {
+                depots.forEach { depot ->
                     DropdownMenuItem(
-                        text = { Text(depo.name) },
-                        onClick = {
-                            selectedDepo = depo.name
-                            selectedProduct = null
-                            depoExpanded = false
-                        },
+                        text = { Text("${depot.name} — ${depot.location}") },
+                        onClick = { selectedDepot = depot; depotExpanded = false },
                     )
                 }
             }
         }
 
-        ExposedDropdownMenuBox(
-            expanded = productExpanded,
-            onExpandedChange = { productExpanded = it },
-        ) {
+        ExposedDropdownMenuBox(expanded = productExpanded, onExpandedChange = { productExpanded = it }) {
             OutlinedTextField(
-                value = selectedProduct ?: "",
+                value = selectedProduct?.name ?: "",
                 onValueChange = {},
                 readOnly = true,
                 label = { Text("Product Name") },
                 trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = productExpanded) },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .menuAnchor(MenuAnchorType.PrimaryNotEditable),
+                modifier = Modifier.fillMaxWidth().menuAnchor(MenuAnchorType.PrimaryNotEditable),
             )
-            ExposedDropdownMenu(
-                expanded = productExpanded,
-                onDismissRequest = { productExpanded = false },
-            ) {
-                availableProducts.forEach { productName ->
+            ExposedDropdownMenu(expanded = productExpanded, onDismissRequest = { productExpanded = false }) {
+                products.forEach { product ->
                     DropdownMenuItem(
-                        text = { Text(productName) },
-                        onClick = {
-                            selectedProduct = productName
-                            productExpanded = false
-                        },
+                        text = { Text(product.name) },
+                        onClick = { selectedProduct = product; productExpanded = false },
+                    )
+                }
+            }
+        }
+
+        ExposedDropdownMenuBox(expanded = quantityExpanded, onExpandedChange = { quantityExpanded = it }) {
+            OutlinedTextField(
+                value = selectedQuantity?.quantity ?: "",
+                onValueChange = {},
+                readOnly = true,
+                label = { Text("Quantity (unit size)") },
+                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = quantityExpanded) },
+                modifier = Modifier.fillMaxWidth().menuAnchor(MenuAnchorType.PrimaryNotEditable),
+            )
+            ExposedDropdownMenu(expanded = quantityExpanded, onDismissRequest = { quantityExpanded = false }) {
+                quantities.forEach { quantity ->
+                    DropdownMenuItem(
+                        text = { Text(quantity.quantity) },
+                        onClick = { selectedQuantity = quantity; quantityExpanded = false },
                     )
                 }
             }
         }
 
         QuantityStepperField(
-            quantity = quantity,
-            onQuantityChange = { quantity = it },
+            quantity = amount,
+            onQuantityChange = { amount = it },
+            label = "Amount",
         )
+
+        OutlinedTextField(
+            value = supplierId,
+            onValueChange = { supplierId = it.filter(Char::isDigit) },
+            label = { Text("Supplier (personnel) ID") },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+        )
+
+        errorMessage?.let {
+            Text(text = it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
+        }
 
         Button(
             onClick = {
-                val qty = quantity.toIntOrNull() ?: return@Button
-                val depoName = selectedDepo ?: return@Button
-                val productName = selectedProduct ?: return@Button
-                if (qty <= 0) return@Button
-                onCreateDelivery(
-                    ProductionDistribution(
-                        productName = productName,
-                        quantity = qty,
-                        date = todayDateString(),
-                        depoName = depoName,
-                    ),
-                )
-                confirmation = "Delivery note created for $productName to the $depoName attendant."
-                selectedProduct = null
-                quantity = ""
+                val depot = selectedDepot ?: return@Button
+                val product = selectedProduct ?: return@Button
+                val quantity = selectedQuantity ?: return@Button
+                val amountValue = amount.toIntOrNull() ?: return@Button
+                val supplierIdValue = supplierId.toIntOrNull() ?: return@Button
+                if (amountValue <= 0) return@Button
+                isSubmitting = true
+                errorMessage = null
+                scope.launch {
+                    FactoryRepository.createSupply(
+                        productId = product.id,
+                        quantityId = quantity.id,
+                        amount = amountValue,
+                        depotId = depot.id,
+                        supplierId = supplierIdValue,
+                    ).onSuccess {
+                        confirmation = "Supply of $amountValue × ${quantity.quantity} ${product.name} sent to ${depot.name}."
+                        selectedProduct = null
+                        selectedQuantity = null
+                        amount = ""
+                        onSupplied()
+                    }.onFailure {
+                        errorMessage = it.message
+                    }
+                    isSubmitting = false
+                }
             },
-            enabled = selectedDepo != null && selectedProduct != null && quantity.toIntOrNull()?.let { it > 0 } == true,
+            enabled = !isSubmitting && selectedDepot != null && selectedProduct != null &&
+                selectedQuantity != null && amount.toIntOrNull()?.let { it > 0 } == true &&
+                supplierId.toIntOrNull() != null,
             modifier = Modifier.fillMaxWidth(),
         ) {
-            Text("Create Delivery Note")
+            if (isSubmitting) {
+                CircularProgressIndicator(modifier = Modifier.height(20.dp))
+            } else {
+                Text("Create Supply")
+            }
         }
 
         confirmation?.let {
@@ -486,5 +643,59 @@ private fun CreateDeliverySection(
     }
 }
 
-private fun todayDateString(): String =
-    SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
+@Composable
+private fun SupplyRow(
+    supply: SupplyResponse,
+    modifier: Modifier = Modifier,
+    onDeleted: () -> Unit,
+) {
+    val scope = rememberCoroutineScope()
+    var isDeleting by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+
+    Card(modifier = modifier.fillMaxWidth().padding(bottom = 8.dp)) {
+        Column(modifier = Modifier.padding(12.dp)) {
+            Text(text = supply.productName, fontWeight = FontWeight.Bold)
+            Text(
+                text = "Amount: ${supply.amount} × ${supply.quantityValue}",
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            supply.depotName?.let {
+                Text(text = "Depo: $it", style = MaterialTheme.typography.bodyMedium)
+            }
+            Text(text = "Status: ${supply.status}", style = MaterialTheme.typography.bodyMedium)
+            supply.rejectionReason?.let {
+                Text(
+                    text = "Rejection reason: $it",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.error,
+                )
+            }
+            Text(
+                text = "Date: ${formatDisplayDate(supply.createdDate)}",
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            errorMessage?.let {
+                Text(text = it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
+            }
+            if (supply.status == "pending") {
+                OutlinedButton(
+                    onClick = {
+                        isDeleting = true
+                        errorMessage = null
+                        scope.launch {
+                            FactoryRepository.deleteSupply(supply.id)
+                                .onSuccess { onDeleted() }
+                                .onFailure { errorMessage = it.message }
+                            isDeleting = false
+                        }
+                    },
+                    enabled = !isDeleting,
+                    modifier = Modifier.padding(top = 8.dp),
+                ) {
+                    Text(if (isDeleting) "Deleting…" else "Delete Supply")
+                }
+            }
+        }
+    }
+}
