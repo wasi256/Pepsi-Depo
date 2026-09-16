@@ -12,6 +12,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.MonitorHeart
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Store
@@ -35,6 +36,7 @@ private fun iconFor(screen: Screen): ImageVector = when (screen) {
     Screen.Overview -> Icons.Filled.Dashboard
     Screen.Users -> Icons.Filled.Group
     Screen.Depos -> Icons.Filled.Store
+    Screen.Products -> Icons.Filled.Inventory2
     Screen.AuditLogs -> Icons.Filled.History
     Screen.SystemHealth -> Icons.Filled.MonitorHeart
     Screen.Settings -> Icons.Filled.Settings

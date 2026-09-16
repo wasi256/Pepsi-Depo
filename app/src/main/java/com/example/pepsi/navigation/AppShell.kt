@@ -36,6 +36,10 @@ import com.example.pepsi.systemadmin.depos.DeposScreen
 import com.example.pepsi.systemadmin.depos.RegisterDepoScreen
 import com.example.pepsi.systemadmin.health.SystemHealthScreen
 import com.example.pepsi.systemadmin.overview.OverviewScreen
+import com.example.pepsi.systemadmin.products.ProductsScreen
+import com.example.pepsi.systemadmin.products.RegisterPriceScreen
+import com.example.pepsi.systemadmin.products.RegisterProductScreen
+import com.example.pepsi.systemadmin.products.RegisterQuantityScreen
 import com.example.pepsi.systemadmin.settings.SettingsScreen
 import com.example.pepsi.systemadmin.users.RegisterUserScreen
 import com.example.pepsi.systemadmin.users.UsersScreen
@@ -129,6 +133,22 @@ fun AppShell(navController: NavHostController = rememberNavController()) {
                 composable(Screen.RegisterDepo.route) {
                     RegisterDepoScreen(onDone = { navController.popBackStack() })
                 }
+                composable(Screen.Products.route) {
+                    ProductsScreen(
+                        onRegisterProduct = { navController.navigate(Screen.RegisterProduct.route) },
+                        onRegisterQuantity = { navController.navigate(Screen.RegisterQuantity.route) },
+                        onRegisterPrice = { navController.navigate(Screen.RegisterPrice.route) },
+                    )
+                }
+                composable(Screen.RegisterProduct.route) {
+                    RegisterProductScreen(onDone = { navController.popBackStack() })
+                }
+                composable(Screen.RegisterQuantity.route) {
+                    RegisterQuantityScreen(onDone = { navController.popBackStack() })
+                }
+                composable(Screen.RegisterPrice.route) {
+                    RegisterPriceScreen(onDone = { navController.popBackStack() })
+                }
                 composable(Screen.AuditLogs.route) {
                     AuditLogsScreen()
                 }
@@ -146,5 +166,8 @@ fun AppShell(navController: NavHostController = rememberNavController()) {
 private fun titleFor(route: String?): String = when (route) {
     Screen.RegisterUser.route -> Screen.RegisterUser.title
     Screen.RegisterDepo.route -> Screen.RegisterDepo.title
+    Screen.RegisterProduct.route -> Screen.RegisterProduct.title
+    Screen.RegisterQuantity.route -> Screen.RegisterQuantity.title
+    Screen.RegisterPrice.route -> Screen.RegisterPrice.title
     else -> Screen.topLevel.firstOrNull { it.route == route }?.title ?: "Pepsi Depo"
 }
