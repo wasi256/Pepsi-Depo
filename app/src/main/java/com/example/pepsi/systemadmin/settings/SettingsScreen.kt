@@ -20,6 +20,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -36,17 +37,22 @@ import androidx.compose.ui.unit.dp
 import android.widget.Toast
 import com.example.pepsi.common.data.AdminDataStore
 import com.example.pepsi.common.model.Role
+import com.example.pepsi.ui.components.PepsiTopBar
 
 @Composable
-fun SettingsScreen() {
+fun SettingsScreen(onMenuClick: () -> Unit) {
     val admin = AdminDataStore.users.firstOrNull { it.role == Role.SYSTEM_ADMIN }
     var passwordVisible by remember { mutableStateOf(false) }
     var showChangePassword by remember { mutableStateOf(false) }
     val context = LocalContext.current
 
+    Scaffold(
+        topBar = { PepsiTopBar(title = "Settings", onMenuClick = onMenuClick) },
+    ) { padding ->
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .padding(padding)
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
@@ -93,6 +99,7 @@ fun SettingsScreen() {
                 Text(text = "More settings coming soon.", style = MaterialTheme.typography.bodyMedium)
             }
         }
+    }
     }
 
     if (showChangePassword && admin != null) {

@@ -54,6 +54,7 @@ import com.example.pepsi.network.model.PriceUpdateRequest
 import com.example.pepsi.network.model.ProductResponse
 import com.example.pepsi.network.model.QuantityResponse
 import com.example.pepsi.network.readErrorMessage
+import com.example.pepsi.ui.components.PepsiTopBar
 import kotlinx.coroutines.launch
 
 private const val TAB_PRODUCTS = 0
@@ -62,6 +63,7 @@ private const val TAB_PRICES = 2
 
 @Composable
 fun ProductsScreen(
+    onMenuClick: () -> Unit,
     onRegisterProduct: () -> Unit,
     onRegisterQuantity: () -> Unit,
     onRegisterPrice: () -> Unit,
@@ -157,6 +159,7 @@ fun ProductsScreen(
     val quantityById = quantities.associateBy { it.id }
 
     Scaffold(
+        topBar = { PepsiTopBar(title = "Products", onMenuClick = onMenuClick) },
         floatingActionButton = {
             ExtendedFloatingActionButton(
                 text = {

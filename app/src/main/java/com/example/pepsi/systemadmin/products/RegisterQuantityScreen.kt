@@ -8,10 +8,17 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -30,6 +37,7 @@ import com.example.pepsi.network.readErrorMessage
 import kotlinx.coroutines.launch
 
 /** Registers a quantity/pack-size option directly against POST /admin/quantities. */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RegisterQuantityScreen(onDone: () -> Unit) {
     var quantity by rememberSaveable { mutableStateOf("") }
@@ -40,9 +48,22 @@ fun RegisterQuantityScreen(onDone: () -> Unit) {
 
     val canSave = quantity.isNotBlank() && !isSubmitting
 
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Register Quantity") },
+                navigationIcon = {
+                    IconButton(onClick = onDone) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    }
+                },
+            )
+        },
+    ) { padding ->
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .padding(padding)
             .verticalScroll(rememberScrollState())
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
@@ -85,5 +106,6 @@ fun RegisterQuantityScreen(onDone: () -> Unit) {
                 Text("Save")
             }
         }
+    }
     }
 }

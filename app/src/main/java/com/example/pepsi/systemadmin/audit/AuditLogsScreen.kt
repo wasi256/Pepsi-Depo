@@ -11,25 +11,30 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.example.pepsi.common.data.AdminDataStore
 import com.example.pepsi.common.model.AuditLog
+import com.example.pepsi.ui.components.PepsiTopBar
 import java.text.SimpleDateFormat
 import java.util.Locale
 
 private val timestampFormat = SimpleDateFormat("dd MMM yyyy, HH:mm", Locale.getDefault())
 
 @Composable
-fun AuditLogsScreen() {
+fun AuditLogsScreen(onMenuClick: () -> Unit) {
     val logs = AdminDataStore.auditLogs
 
+    Scaffold(
+        topBar = { PepsiTopBar(title = "Audit Logs", onMenuClick = onMenuClick) },
+    ) { padding ->
     LazyColumn(
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier.fillMaxSize().padding(padding),
     ) {
         item {
             Text(
@@ -41,6 +46,7 @@ fun AuditLogsScreen() {
         items(logs, key = { it.id }) { log ->
             AuditLogRow(log)
         }
+    }
     }
 }
 

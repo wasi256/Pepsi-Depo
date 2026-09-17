@@ -36,9 +36,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.example.pepsi.common.data.AdminDataStore
 import com.example.pepsi.common.model.User
+import com.example.pepsi.ui.components.PepsiTopBar
 
 @Composable
-fun UsersScreen(onRegisterUser: () -> Unit) {
+fun UsersScreen(onMenuClick: () -> Unit, onRegisterUser: () -> Unit) {
     val users = AdminDataStore.users
     var query by rememberSaveable { mutableStateOf("") }
     val filteredUsers = if (query.isBlank()) {
@@ -51,6 +52,7 @@ fun UsersScreen(onRegisterUser: () -> Unit) {
     }
 
     Scaffold(
+        topBar = { PepsiTopBar(title = "Users", onMenuClick = onMenuClick) },
         floatingActionButton = {
             ExtendedFloatingActionButton(
                 text = { Text("Register User") },

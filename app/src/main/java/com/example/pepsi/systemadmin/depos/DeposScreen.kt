@@ -56,10 +56,11 @@ import com.example.pepsi.network.RetrofitClient
 import com.example.pepsi.network.model.DepotCreateRequest
 import com.example.pepsi.network.model.DepotResponse
 import com.example.pepsi.network.readErrorMessage
+import com.example.pepsi.ui.components.PepsiTopBar
 import kotlinx.coroutines.launch
 
 @Composable
-fun DeposScreen(onRegisterDepo: () -> Unit) {
+fun DeposScreen(onMenuClick: () -> Unit, onRegisterDepo: () -> Unit) {
     var depots by remember { mutableStateOf<List<DepotResponse>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
@@ -107,6 +108,7 @@ fun DeposScreen(onRegisterDepo: () -> Unit) {
     }
 
     Scaffold(
+        topBar = { PepsiTopBar(title = "Depo", onMenuClick = onMenuClick) },
         floatingActionButton = {
             ExtendedFloatingActionButton(
                 text = { Text("Register Depo") },

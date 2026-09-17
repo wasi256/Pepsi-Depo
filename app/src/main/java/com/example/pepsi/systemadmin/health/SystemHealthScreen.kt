@@ -13,12 +13,14 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.pepsi.common.data.AdminDataStore
+import com.example.pepsi.ui.components.PepsiTopBar
 
 private data class HealthMetric(val label: String, val percent: Int)
 
@@ -30,13 +32,16 @@ private val subMetrics = listOf(
 )
 
 @Composable
-fun SystemHealthScreen() {
+fun SystemHealthScreen(onMenuClick: () -> Unit) {
     val overall = AdminDataStore.systemHealthPercent.value
 
+    Scaffold(
+        topBar = { PepsiTopBar(title = "System Health", onMenuClick = onMenuClick) },
+    ) { padding ->
     LazyColumn(
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier.fillMaxSize().padding(padding),
     ) {
         item {
             Card(modifier = Modifier.fillMaxWidth()) {
@@ -76,5 +81,6 @@ fun SystemHealthScreen() {
                 }
             }
         }
+    }
     }
 }
