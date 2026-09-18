@@ -33,7 +33,6 @@ import com.example.pepsi.ui.depos.DeposScreen
 import com.example.pepsi.ui.overview.FactoryOverviewScreen
 import com.example.pepsi.ui.overview.OverviewScreen
 import com.example.pepsi.ui.products.ProductsScreen
-import com.example.pepsi.ui.profile.FactoryProfileScreen
 import com.example.pepsi.ui.profile.ProfileScreen
 import com.example.pepsi.ui.receive.ReceiveProductsScreen
 import com.example.pepsi.ui.sales.SalesScreen
@@ -117,10 +116,7 @@ fun PepsiNavHost(startRoute: String, navController: NavHostController = remember
                 ProfileScreen(onBack = { navController.popBackStack() })
             }
             guarded(Screen.FactoryProfile.route, ::openDrawer) {
-                FactoryProfileScreen(
-                    onBack = { navController.popBackStack() },
-                    onLogout = { AuthSession.signOut() },
-                )
+                ProfileScreen(onBack = { navController.popBackStack() })
             }
             guarded(Screen.AdminOverview.route, ::openDrawer) {
                 AdminOverviewScreen(onMenuClick = ::openDrawer)

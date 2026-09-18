@@ -22,6 +22,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.pepsi.data.model.TrendPeriod
+import com.example.pepsi.auth.AuthSession
 import com.example.pepsi.data.sample.FactorySampleData
 import com.example.pepsi.ui.components.KpiCard
 import com.example.pepsi.ui.components.KpiData
@@ -52,7 +53,8 @@ fun FactoryOverviewScreen(
     )
     var selectedPeriod by remember { mutableStateOf(TrendPeriod.Monthly) }
     val greeting = remember { greetingForHour(Calendar.getInstance().get(Calendar.HOUR_OF_DAY)) }
-    val managerFirstName = remember { FactorySampleData.manager.name.substringBefore(" ") }
+    val sessionUser = AuthSession.user
+    val managerFirstName = (sessionUser?.personnel_name ?: sessionUser?.username).orEmpty().substringBefore(" ")
 
     Scaffold(
         topBar = {
