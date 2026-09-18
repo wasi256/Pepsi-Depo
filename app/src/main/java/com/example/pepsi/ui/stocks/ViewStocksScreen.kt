@@ -9,8 +9,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Card
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -18,29 +18,41 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.example.pepsi.data.model.DeliveryStatus
-import com.example.pepsi.data.model.RangePeriod
-import com.example.pepsi.data.state.DepoState
+import com.example.pepsi.auth.AuthSession
+import com.example.pepsi.network.RetrofitClient
+import com.example.pepsi.network.model.CurrentStockResponse
+import com.example.pepsi.network.readErrorMessage
+import com.example.pepsi.ui.components.ListStatus
+import com.example.pepsi.ui.components.OnResume
 import com.example.pepsi.ui.components.PepsiTopBar
-import com.example.pepsi.ui.components.RangePeriodSelector
+import com.example.pepsi.util.formatApiDateTime
 
 @Composable
 fun ViewStocksScreen(onMenuClick: () -> Unit) {
-    var selectedPeriod by remember { mutableStateOf(RangePeriod.Today) }
+    var stock by remember { mutableStateOf<List<CurrentStockResponse>>(emptyList()) }
+    var isLoading by remember { mutableStateOf(true) }
+    var error by remember { mutableStateOf<String?>(null) }
+    var search by remember { mutableStateOf("") }
 
-    val soldInPeriod = DepoState.sales
-        .filter { DepoState.matchesPeriod(it.date, selectedPeriod) }
-        .groupBy { it.productName }
-        .mapValues { (_, records) -> records.sumOf { it.quantity } }
+    OnResume(key = AuthSession.depotId) {
+        isLoading = true
+        error = null
+        try {
+            val response = RetrofitClient.depotApi.listCurrentStock(AuthSession.depotId)
+            if (response.isSuccessful) stock = response.body().orEmpty() else error = response.readErrorMessage()
+        } catch (e: Exception) {
+            error = "Network error: ${e.message}"
+        }
+        isLoading = false
+    }
 
-    val receivedInPeriod = DepoState.deliveries
-        .filter { it.status == DeliveryStatus.Confirmed && DepoState.matchesPeriod(it.date, selectedPeriod) }
-        .flatMap { it.items }
-        .groupBy { it.productName }
-        .mapValues { (_, items) -> items.sumOf { it.quantitySent } }
+    val visible = stock.filter {
+        search.isBlank() || it.product_name.orEmpty().contains(search.trim(), ignoreCase = true)
+    }
 
     Scaffold(
         topBar = { PepsiTopBar(title = "View Stocks", onMenuClick = onMenuClick) },
@@ -53,53 +65,61 @@ fun ViewStocksScreen(onMenuClick: () -> Unit) {
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             item {
-                RangePeriodSelector(selected = selectedPeriod, onSelect = { selectedPeriod = it })
-            }
-            item {
                 Text(
-                    text = "Current stock, with movement for ${selectedPeriod.label.lowercase()}",
+                    text = "Current stock at ${stock.firstNotNullOfOrNull { it.depot_name } ?: "your depot"}",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                )
+                Text(
+                    text = "${stock.size} products · ${stock.sumOf { it.current_amount }} units in total",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
             item {
-                StockTableHeader()
-            }
-            items(DepoState.stock, key = { it.productName }) { stockItem ->
-                StockRow(
-                    productName = stockItem.productName,
-                    quantity = stockItem.quantity,
-                    sold = soldInPeriod[stockItem.productName] ?: 0,
-                    received = receivedInPeriod[stockItem.productName] ?: 0,
+                OutlinedTextField(
+                    value = search,
+                    onValueChange = { search = it },
+                    label = { Text("Search product") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
                 )
             }
-        }
-    }
-}
-
-@Composable
-private fun StockTableHeader() {
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Row(modifier = Modifier.padding(12.dp)) {
-            Text(text = "Product", fontWeight = FontWeight.Bold, modifier = Modifier.weight(2f))
-            Text(text = "Available", fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-            Text(text = "Sold", fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-            Text(text = "Received", fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-        }
-    }
-}
-
-@Composable
-private fun StockRow(productName: String, quantity: Int, sold: Int, received: Int) {
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column {
-            Row(modifier = Modifier.padding(12.dp)) {
-                Text(text = productName, modifier = Modifier.weight(2f))
-                Text(text = "$quantity", modifier = Modifier.weight(1f))
-                Text(text = "$sold", modifier = Modifier.weight(1f))
-                Text(text = "$received", modifier = Modifier.weight(1f))
+            item {
+                ListStatus(
+                    isLoading = isLoading,
+                    error = error,
+                    isEmpty = !isLoading && error == null && visible.isEmpty(),
+                    emptyText = if (stock.isEmpty()) "No stock recorded for this depot yet." else "No product matches your search.",
+                )
             }
-            HorizontalDivider()
+            items(visible, key = { it.id }) { item ->
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    Row(
+                        modifier = Modifier.padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "${item.product_name ?: "Product #${item.product_id}"} ${item.quantity_value.orEmpty()}".trim(),
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold,
+                            )
+                            Text(
+                                text = "Updated ${formatApiDateTime(item.updated_at)}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        Text(
+                            text = "${item.current_amount}",
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = if (item.current_amount <= 0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
+                        )
+                    }
+                }
+            }
         }
     }
 }

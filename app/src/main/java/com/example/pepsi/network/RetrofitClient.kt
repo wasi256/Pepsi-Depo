@@ -65,4 +65,6 @@ object RetrofitClient {
 
     val adminApi: AdminApiService by lazy { instance.create(AdminApiService::class.java) }
     val authApi: AuthApiService by lazy { instance.create(AuthApiService::class.java) }
+    val depotApi: DepotApiService by lazy { instance.create(DepotApiService::class.java) }
+    val factorySupplyApi: FactorySupplyApiService by lazy { instance.create(FactorySupplyApiService::class.java) }
 }
