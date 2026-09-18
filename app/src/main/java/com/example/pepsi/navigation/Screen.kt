@@ -19,6 +19,7 @@ sealed class Screen(val route: String, val label: String) {
     data object AdminOverview : Screen("admin_overview", "Overview")
     data object AdminUsers : Screen("admin_users", "Users")
     data object AdminRegisterUser : Screen("admin_users/register", "Register User")
+    data object AdminRegisterRole : Screen("admin_users/roles/register", "Register Role")
     data object AdminDepos : Screen("admin_depos", "Depo")
     data object AdminRegisterDepo : Screen("admin_depos/register", "Register Depo")
     data object AdminProducts : Screen("admin_products", "Products")

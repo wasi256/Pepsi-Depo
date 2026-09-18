@@ -1,4 +1,4 @@
-package com.example.pepsi.systemadmin.products
+package com.example.pepsi.systemadmin.users
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -32,14 +32,14 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import android.widget.Toast
 import com.example.pepsi.network.RetrofitClient
-import com.example.pepsi.network.model.ProductCreateRequest
+import com.example.pepsi.network.model.RoleCreateRequest
 import com.example.pepsi.network.readErrorMessage
 import kotlinx.coroutines.launch
 
-/** Registers a product directly against POST /admin/products. */
+/** Registers a role directly against POST /admin/roles. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun RegisterProductScreen(onDone: () -> Unit) {
+fun RegisterRoleScreen(onDone: () -> Unit) {
     var name by rememberSaveable { mutableStateOf("") }
     var isSubmitting by remember { mutableStateOf(false) }
 
@@ -51,7 +51,7 @@ fun RegisterProductScreen(onDone: () -> Unit) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Register Product") },
+                title = { Text("Register Role") },
                 navigationIcon = {
                     IconButton(onClick = onDone) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
@@ -60,52 +60,50 @@ fun RegisterProductScreen(onDone: () -> Unit) {
             )
         },
     ) { padding ->
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(padding)
-            .verticalScroll(rememberScrollState())
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-    ) {
-        OutlinedTextField(
-            value = name,
-            onValueChange = { name = it },
-            label = { Text("Product name") },
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth(),
-        )
-
-        Button(
-            onClick = {
-                isSubmitting = true
-                scope.launch {
-                    try {
-                        val response = RetrofitClient.adminApi.createProducts(
-                            listOf(ProductCreateRequest(name = name.trim())),
-                        )
-                        if (response.isSuccessful) {
-                            Toast.makeText(context, "Product registered successfully", Toast.LENGTH_LONG).show()
-                            onDone()
-                        } else {
-                            Toast.makeText(context, response.readErrorMessage(), Toast.LENGTH_LONG).show()
-                        }
-                    } catch (e: Exception) {
-                        Toast.makeText(context, "Network error: ${e.message}", Toast.LENGTH_LONG).show()
-                    } finally {
-                        isSubmitting = false
-                    }
-                }
-            },
-            enabled = canSave,
-            modifier = Modifier.fillMaxWidth(),
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .verticalScroll(rememberScrollState())
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            if (isSubmitting) {
-                CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Color.White, strokeWidth = 2.dp)
-            } else {
-                Text("Save")
+            OutlinedTextField(
+                value = name,
+                onValueChange = { name = it },
+                label = { Text("Role name") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
+
+            Button(
+                onClick = {
+                    isSubmitting = true
+                    scope.launch {
+                        try {
+                            val response = RetrofitClient.adminApi.createRoles(listOf(RoleCreateRequest(name.trim())))
+                            if (response.isSuccessful) {
+                                Toast.makeText(context, "Role registered successfully", Toast.LENGTH_LONG).show()
+                                onDone()
+                            } else {
+                                Toast.makeText(context, response.readErrorMessage(), Toast.LENGTH_LONG).show()
+                            }
+                        } catch (e: Exception) {
+                            Toast.makeText(context, "Network error: ${e.message}", Toast.LENGTH_LONG).show()
+                        } finally {
+                            isSubmitting = false
+                        }
+                    }
+                },
+                enabled = canSave,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                if (isSubmitting) {
+                    CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Color.White, strokeWidth = 2.dp)
+                } else {
+                    Text("Save")
+                }
             }
         }
-    }
     }
 }

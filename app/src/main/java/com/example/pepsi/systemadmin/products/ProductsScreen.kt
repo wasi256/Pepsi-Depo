@@ -51,7 +51,9 @@ import androidx.lifecycle.LifecycleEventObserver
 import com.example.pepsi.network.RetrofitClient
 import com.example.pepsi.network.model.PriceResponse
 import com.example.pepsi.network.model.PriceUpdateRequest
+import com.example.pepsi.network.model.ProductCreateRequest
 import com.example.pepsi.network.model.ProductResponse
+import com.example.pepsi.network.model.QuantityCreateRequest
 import com.example.pepsi.network.model.QuantityResponse
 import com.example.pepsi.network.readErrorMessage
 import com.example.pepsi.ui.components.PepsiTopBar
@@ -74,11 +76,15 @@ fun ProductsScreen(
     var productsLoading by remember { mutableStateOf(true) }
     var productsError by remember { mutableStateOf<String?>(null) }
     var productQuery by rememberSaveable { mutableStateOf("") }
+    var editingProduct by remember { mutableStateOf<ProductResponse?>(null) }
+    var deletingProduct by remember { mutableStateOf<ProductResponse?>(null) }
 
     var quantities by remember { mutableStateOf<List<QuantityResponse>>(emptyList()) }
     var quantitiesLoading by remember { mutableStateOf(true) }
     var quantitiesError by remember { mutableStateOf<String?>(null) }
     var quantityQuery by rememberSaveable { mutableStateOf("") }
+    var editingQuantity by remember { mutableStateOf<QuantityResponse?>(null) }
+    var deletingQuantity by remember { mutableStateOf<QuantityResponse?>(null) }
 
     var prices by remember { mutableStateOf<List<PriceResponse>>(emptyList()) }
     var pricesLoading by remember { mutableStateOf(true) }
@@ -210,7 +216,12 @@ fun ProductsScreen(
                         items = filtered,
                         key = { it.id },
                     ) { product ->
-                        SimpleCatalogRow(title = product.name, subtitle = "ID: ${product.id}")
+                        SimpleCatalogRow(
+                            title = product.name,
+                            subtitle = "ID: ${product.id}",
+                            onEdit = { editingProduct = product },
+                            onDelete = { deletingProduct = product },
+                        )
                     }
                 }
 
@@ -232,7 +243,12 @@ fun ProductsScreen(
                         items = filtered,
                         key = { it.id },
                     ) { quantity ->
-                        SimpleCatalogRow(title = quantity.quantity, subtitle = "ID: ${quantity.id}")
+                        SimpleCatalogRow(
+                            title = quantity.quantity,
+                            subtitle = "ID: ${quantity.id}",
+                            onEdit = { editingQuantity = quantity },
+                            onDelete = { deletingQuantity = quantity },
+                        )
                     }
                 }
 
@@ -270,6 +286,80 @@ fun ProductsScreen(
         }
     }
 
+    editingProduct?.let { product ->
+        EditNameDialog(
+            title = "Edit Product",
+            label = "Product name",
+            initialValue = product.name,
+            onDismiss = { editingProduct = null },
+            onSave = { newName ->
+                RetrofitClient.adminApi.updateProduct(product.id, ProductCreateRequest(newName))
+            },
+            onSaved = { updated ->
+                products = products.map { if (it.id == updated.id) updated else it }
+                editingProduct = null
+                Toast.makeText(context, "Product updated successfully", Toast.LENGTH_LONG).show()
+            },
+        )
+    }
+
+    deletingProduct?.let { product ->
+        ConfirmDeleteDialog(
+            title = "Delete Product",
+            message = "Are you sure you want to delete \"${product.name}\"? This cannot be undone.",
+            onDismiss = { deletingProduct = null },
+            onConfirm = {
+                val response = RetrofitClient.adminApi.deleteProduct(product.id)
+                if (response.isSuccessful) {
+                    products = products.filterNot { it.id == product.id }
+                    deletingProduct = null
+                    Toast.makeText(context, "Product deleted successfully", Toast.LENGTH_LONG).show()
+                    true
+                } else {
+                    Toast.makeText(context, response.readErrorMessage(), Toast.LENGTH_LONG).show()
+                    false
+                }
+            },
+        )
+    }
+
+    editingQuantity?.let { quantity ->
+        EditNameDialog(
+            title = "Edit Quantity",
+            label = "Quantity",
+            initialValue = quantity.quantity,
+            onDismiss = { editingQuantity = null },
+            onSave = { newValue ->
+                RetrofitClient.adminApi.updateQuantity(quantity.id, QuantityCreateRequest(newValue))
+            },
+            onSaved = { updated ->
+                quantities = quantities.map { if (it.id == updated.id) updated else it }
+                editingQuantity = null
+                Toast.makeText(context, "Quantity updated successfully", Toast.LENGTH_LONG).show()
+            },
+        )
+    }
+
+    deletingQuantity?.let { quantity ->
+        ConfirmDeleteDialog(
+            title = "Delete Quantity",
+            message = "Are you sure you want to delete \"${quantity.quantity}\"? This cannot be undone.",
+            onDismiss = { deletingQuantity = null },
+            onConfirm = {
+                val response = RetrofitClient.adminApi.deleteQuantity(quantity.id)
+                if (response.isSuccessful) {
+                    quantities = quantities.filterNot { it.id == quantity.id }
+                    deletingQuantity = null
+                    Toast.makeText(context, "Quantity deleted successfully", Toast.LENGTH_LONG).show()
+                    true
+                } else {
+                    Toast.makeText(context, response.readErrorMessage(), Toast.LENGTH_LONG).show()
+                    false
+                }
+            },
+        )
+    }
+
     editingPrice?.let { price ->
         EditPriceDialog(
             price = price,
@@ -284,14 +374,21 @@ fun ProductsScreen(
     }
 
     deletingPrice?.let { price ->
-        DeletePriceDialog(
-            price = price,
-            quantityLabel = quantityById[price.quantity_id]?.quantity ?: "Quantity #${price.quantity_id}",
+        ConfirmDeleteDialog(
+            title = "Delete Price",
+            message = "Are you sure you want to delete the price for \"${quantityById[price.quantity_id]?.quantity ?: "Quantity #${price.quantity_id}"}\"? This cannot be undone.",
             onDismiss = { deletingPrice = null },
-            onDeleted = {
-                prices = prices.filterNot { it.id == price.id }
-                deletingPrice = null
-                Toast.makeText(context, "Price deleted successfully", Toast.LENGTH_LONG).show()
+            onConfirm = {
+                val response = RetrofitClient.adminApi.deletePrice(price.quantity_id)
+                if (response.isSuccessful) {
+                    prices = prices.filterNot { it.id == price.id }
+                    deletingPrice = null
+                    Toast.makeText(context, "Price deleted successfully", Toast.LENGTH_LONG).show()
+                    true
+                } else {
+                    Toast.makeText(context, response.readErrorMessage(), Toast.LENGTH_LONG).show()
+                    false
+                }
             },
         )
     }
@@ -366,14 +463,28 @@ private fun <T> CatalogList(
 }
 
 @Composable
-private fun SimpleCatalogRow(title: String, subtitle: String) {
+private fun SimpleCatalogRow(title: String, subtitle: String, onEdit: () -> Unit, onDelete: () -> Unit) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text(text = title, style = MaterialTheme.typography.titleMedium)
-            Text(text = subtitle, style = MaterialTheme.typography.bodyMedium)
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column {
+                Text(text = title, style = MaterialTheme.typography.titleMedium)
+                Text(text = subtitle, style = MaterialTheme.typography.bodyMedium)
+            }
+            Row {
+                IconButton(onClick = onEdit) {
+                    Icon(Icons.Filled.Edit, contentDescription = "Edit")
+                }
+                IconButton(onClick = onDelete) {
+                    Icon(Icons.Filled.Delete, contentDescription = "Delete")
+                }
+            }
         }
     }
 }
@@ -404,6 +515,68 @@ private fun PriceRow(price: PriceResponse, quantityLabel: String, onEdit: () -> 
             Text(text = "Amount: ${price.amount}", style = MaterialTheme.typography.bodyMedium)
         }
     }
+}
+
+@Composable
+private fun <T : Any> EditNameDialog(
+    title: String,
+    label: String,
+    initialValue: String,
+    onDismiss: () -> Unit,
+    onSave: suspend (String) -> retrofit2.Response<T>,
+    onSaved: (T) -> Unit,
+) {
+    var value by remember { mutableStateOf(initialValue) }
+    var isSubmitting by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+
+    AlertDialog(
+        onDismissRequest = { if (!isSubmitting) onDismiss() },
+        title = { Text(title) },
+        text = {
+            OutlinedTextField(
+                value = value,
+                onValueChange = { value = it },
+                label = { Text(label) },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        },
+        confirmButton = {
+            Button(
+                enabled = value.isNotBlank() && !isSubmitting,
+                onClick = {
+                    isSubmitting = true
+                    scope.launch {
+                        try {
+                            val response = onSave(value.trim())
+                            if (response.isSuccessful) {
+                                response.body()?.let(onSaved)
+                            } else {
+                                Toast.makeText(context, response.readErrorMessage(), Toast.LENGTH_LONG).show()
+                            }
+                        } catch (e: Exception) {
+                            Toast.makeText(context, "Network error: ${e.message}", Toast.LENGTH_LONG).show()
+                        } finally {
+                            isSubmitting = false
+                        }
+                    }
+                },
+            ) {
+                if (isSubmitting) {
+                    CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                } else {
+                    Text("Save")
+                }
+            }
+        },
+        dismissButton = {
+            OutlinedButton(onClick = onDismiss, enabled = !isSubmitting) {
+                Text("Cancel")
+            }
+        },
+    )
 }
 
 @Composable
@@ -475,11 +648,11 @@ private fun EditPriceDialog(
 }
 
 @Composable
-private fun DeletePriceDialog(
-    price: PriceResponse,
-    quantityLabel: String,
+private fun ConfirmDeleteDialog(
+    title: String,
+    message: String,
     onDismiss: () -> Unit,
-    onDeleted: () -> Unit,
+    onConfirm: suspend () -> Boolean,
 ) {
     var isSubmitting by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
@@ -487,8 +660,8 @@ private fun DeletePriceDialog(
 
     AlertDialog(
         onDismissRequest = { if (!isSubmitting) onDismiss() },
-        title = { Text("Delete Price") },
-        text = { Text("Are you sure you want to delete the price for \"$quantityLabel\"? This cannot be undone.") },
+        title = { Text(title) },
+        text = { Text(message) },
         confirmButton = {
             Button(
                 enabled = !isSubmitting,
@@ -496,12 +669,7 @@ private fun DeletePriceDialog(
                     isSubmitting = true
                     scope.launch {
                         try {
-                            val response = RetrofitClient.adminApi.deletePrice(price.quantity_id)
-                            if (response.isSuccessful) {
-                                onDeleted()
-                            } else {
-                                Toast.makeText(context, response.readErrorMessage(), Toast.LENGTH_LONG).show()
-                            }
+                            onConfirm()
                         } catch (e: Exception) {
                             Toast.makeText(context, "Network error: ${e.message}", Toast.LENGTH_LONG).show()
                         } finally {

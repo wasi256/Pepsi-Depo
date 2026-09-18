@@ -81,8 +81,8 @@ fun RegisterQuantityScreen(onDone: () -> Unit) {
                 isSubmitting = true
                 scope.launch {
                     try {
-                        val response = RetrofitClient.adminApi.createQuantity(
-                            QuantityCreateRequest(quantity = quantity.trim()),
+                        val response = RetrofitClient.adminApi.createQuantities(
+                            listOf(QuantityCreateRequest(quantity = quantity.trim())),
                         )
                         if (response.isSuccessful) {
                             Toast.makeText(context, "Quantity registered successfully", Toast.LENGTH_LONG).show()

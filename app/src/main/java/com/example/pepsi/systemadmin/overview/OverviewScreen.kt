@@ -30,7 +30,6 @@ import com.example.pepsi.common.components.StatCard
 import com.example.pepsi.common.components.TrendLineChart
 import com.example.pepsi.common.data.AdminDataStore
 import com.example.pepsi.network.RetrofitClient
-import com.example.pepsi.theme.PepsiElectricBlue
 import com.example.pepsi.theme.PepsiRed
 import com.example.pepsi.ui.components.PepsiTopBar
 
@@ -38,10 +37,21 @@ private data class OverviewStat(val title: String, val value: String, val icon: 
 
 @Composable
 fun OverviewScreen(onMenuClick: () -> Unit) {
+    var userCount by remember { mutableIntStateOf(0) }
+    var userCountLoaded by remember { mutableStateOf(false) }
     var depotCount by remember { mutableIntStateOf(0) }
     var depotCountLoaded by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
+        try {
+            val response = RetrofitClient.adminApi.listPersonnel()
+            if (response.isSuccessful) {
+                userCount = response.body()?.total ?: 0
+                userCountLoaded = true
+            }
+        } catch (e: Exception) {
+            // Leave the user count blank; the rest of the overview still renders.
+        }
         try {
             val response = RetrofitClient.adminApi.listDepots()
             if (response.isSuccessful) {
@@ -54,7 +64,7 @@ fun OverviewScreen(onMenuClick: () -> Unit) {
     }
 
     val stats = listOf(
-        OverviewStat("Registered Users", AdminDataStore.users.size.toString(), Icons.Filled.Group),
+        OverviewStat("Registered Users", if (userCountLoaded) userCount.toString() else "—", Icons.Filled.Group),
         OverviewStat("Registered Depos", if (depotCountLoaded) depotCount.toString() else "—", Icons.Filled.Store),
         OverviewStat("Audit Logs", AdminDataStore.auditLogs.size.toString(), Icons.Filled.History),
         OverviewStat("System Health", "${AdminDataStore.systemHealthPercent.value}%", Icons.Filled.MonitorHeart),
@@ -93,12 +103,6 @@ fun OverviewScreen(onMenuClick: () -> Unit) {
             modifier = Modifier.padding(top = 8.dp),
         )
 
-        TrendLineChart(
-            title = "Registered Users",
-            currentValueLabel = AdminDataStore.users.size.toString(),
-            values = AdminDataStore.usersTrend(),
-            lineColor = PepsiElectricBlue,
-        )
         TrendLineChart(
             title = "System Health",
             currentValueLabel = "${AdminDataStore.systemHealthPercent.value}%",

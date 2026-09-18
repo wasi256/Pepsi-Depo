@@ -120,10 +120,12 @@ fun RegisterDepoScreen(onDone: () -> Unit) {
                 isSubmitting = true
                 scope.launch {
                     try {
-                        val response = RetrofitClient.adminApi.createDepot(
-                            DepotCreateRequest(
-                                name = name.trim(),
-                                location = location!!,
+                        val response = RetrofitClient.adminApi.createDepots(
+                            listOf(
+                                DepotCreateRequest(
+                                    name = name.trim(),
+                                    location = location!!,
+                                ),
                             ),
                         )
                         if (response.isSuccessful) {

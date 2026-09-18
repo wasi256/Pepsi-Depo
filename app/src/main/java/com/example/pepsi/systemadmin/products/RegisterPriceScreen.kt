@@ -144,8 +144,8 @@ fun RegisterPriceScreen(onDone: () -> Unit) {
                 isSubmitting = true
                 scope.launch {
                     try {
-                        val response = RetrofitClient.adminApi.createPrice(
-                            PriceCreateRequest(quantity_id = quantityId, amount = amountValue),
+                        val response = RetrofitClient.adminApi.createPrices(
+                            listOf(PriceCreateRequest(quantity_id = quantityId, amount = amountValue)),
                         )
                         if (response.isSuccessful) {
                             Toast.makeText(context, "Price registered successfully", Toast.LENGTH_LONG).show()

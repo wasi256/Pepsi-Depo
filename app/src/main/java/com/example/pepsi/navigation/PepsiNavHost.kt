@@ -22,6 +22,7 @@ import com.example.pepsi.systemadmin.products.RegisterPriceScreen
 import com.example.pepsi.systemadmin.products.RegisterProductScreen
 import com.example.pepsi.systemadmin.products.RegisterQuantityScreen
 import com.example.pepsi.systemadmin.settings.SettingsScreen
+import com.example.pepsi.systemadmin.users.RegisterRoleScreen
 import com.example.pepsi.systemadmin.users.RegisterUserScreen
 import com.example.pepsi.systemadmin.users.UsersScreen
 import com.example.pepsi.ui.depos.DeposScreen
@@ -124,10 +125,14 @@ fun PepsiNavHost(navController: NavHostController = rememberNavController()) {
                 UsersScreen(
                     onMenuClick = ::openDrawer,
                     onRegisterUser = { navController.navigate(Screen.AdminRegisterUser.route) },
+                    onRegisterRole = { navController.navigate(Screen.AdminRegisterRole.route) },
                 )
             }
             composable(Screen.AdminRegisterUser.route) {
                 RegisterUserScreen(onDone = { navController.popBackStack() })
+            }
+            composable(Screen.AdminRegisterRole.route) {
+                RegisterRoleScreen(onDone = { navController.popBackStack() })
             }
             composable(Screen.AdminDepos.route) {
                 AdminDeposScreen(
