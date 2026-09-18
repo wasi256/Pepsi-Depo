@@ -51,6 +51,8 @@ import androidx.compose.ui.unit.dp
 import android.widget.Toast
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import com.example.pepsi.auth.AppAccess
+import com.example.pepsi.auth.PermissionModule
 import com.example.pepsi.common.data.UgandaDistricts
 import com.example.pepsi.network.RetrofitClient
 import com.example.pepsi.network.model.DepotCreateRequest
@@ -107,16 +109,22 @@ fun DeposScreen(onMenuClick: () -> Unit, onRegisterDepo: () -> Unit) {
         }
     }
 
+    val canCreate = AppAccess.canCreate(PermissionModule.ADMIN_DEPOTS)
+    val canUpdate = AppAccess.canUpdate(PermissionModule.ADMIN_DEPOTS)
+    val canDelete = AppAccess.canDelete(PermissionModule.ADMIN_DEPOTS)
+
     Scaffold(
         topBar = { PepsiTopBar(title = "Depo", onMenuClick = onMenuClick) },
         floatingActionButton = {
-            ExtendedFloatingActionButton(
-                text = { Text("Register Depo") },
-                icon = { Icon(Icons.Filled.AddBusiness, contentDescription = null) },
-                onClick = onRegisterDepo,
-                containerColor = MaterialTheme.colorScheme.secondary,
-                contentColor = MaterialTheme.colorScheme.onSecondary,
-            )
+            if (canCreate) {
+                ExtendedFloatingActionButton(
+                    text = { Text("Register Depo") },
+                    icon = { Icon(Icons.Filled.AddBusiness, contentDescription = null) },
+                    onClick = onRegisterDepo,
+                    containerColor = MaterialTheme.colorScheme.secondary,
+                    contentColor = MaterialTheme.colorScheme.onSecondary,
+                )
+            }
         },
     ) { padding ->
         Box(modifier = Modifier.fillMaxSize().padding(padding)) {
@@ -174,8 +182,8 @@ fun DeposScreen(onMenuClick: () -> Unit, onRegisterDepo: () -> Unit) {
                         items(filteredDepots, key = { it.id }) { depot ->
                             DepoRow(
                                 depot = depot,
-                                onEdit = { editingDepot = depot },
-                                onDelete = { deletingDepot = depot },
+                                onEdit = if (canUpdate) ({ editingDepot = depot }) else null,
+                                onDelete = if (canDelete) ({ deletingDepot = depot }) else null,
                             )
                         }
                     }
@@ -210,7 +218,7 @@ fun DeposScreen(onMenuClick: () -> Unit, onRegisterDepo: () -> Unit) {
 }
 
 @Composable
-private fun DepoRow(depot: DepotResponse, onEdit: () -> Unit, onDelete: () -> Unit) {
+private fun DepoRow(depot: DepotResponse, onEdit: (() -> Unit)?, onDelete: (() -> Unit)?) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
@@ -223,11 +231,15 @@ private fun DepoRow(depot: DepotResponse, onEdit: () -> Unit, onDelete: () -> Un
             ) {
                 Text(text = depot.name, style = MaterialTheme.typography.titleMedium)
                 Row {
-                    IconButton(onClick = onEdit) {
-                        Icon(Icons.Filled.Edit, contentDescription = "Edit depot")
+                    if (onEdit != null) {
+                        IconButton(onClick = onEdit) {
+                            Icon(Icons.Filled.Edit, contentDescription = "Edit depot")
+                        }
                     }
-                    IconButton(onClick = onDelete) {
-                        Icon(Icons.Filled.Delete, contentDescription = "Delete depot")
+                    if (onDelete != null) {
+                        IconButton(onClick = onDelete) {
+                            Icon(Icons.Filled.Delete, contentDescription = "Delete depot")
+                        }
                     }
                 }
             }

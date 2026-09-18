@@ -7,11 +7,15 @@ import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
+import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.example.pepsi.auth.AccessDeniedScreen
+import com.example.pepsi.auth.AppAccess
+import com.example.pepsi.auth.AuthSession
 import com.example.pepsi.systemadmin.audit.AuditLogsScreen
 import com.example.pepsi.systemadmin.depos.DeposScreen as AdminDeposScreen
 import com.example.pepsi.systemadmin.depos.RegisterDepoScreen
@@ -40,7 +44,7 @@ import com.example.pepsi.ui.workers.WorkersScreen
 import kotlinx.coroutines.launch
 
 @Composable
-fun PepsiNavHost(navController: NavHostController = rememberNavController()) {
+fun PepsiNavHost(startRoute: String, navController: NavHostController = rememberNavController()) {
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val scope = rememberCoroutineScope()
     val currentRoute = navController.currentBackStackEntryAsState().value?.destination?.route
@@ -48,7 +52,7 @@ fun PepsiNavHost(navController: NavHostController = rememberNavController()) {
     fun navigateTo(screen: Screen) {
         scope.launch { drawerState.close() }
         navController.navigate(screen.route) {
-            popUpTo(Screen.DepotOverview.route) { inclusive = false }
+            popUpTo(startRoute) { inclusive = false }
             launchSingleTop = true
         }
     }
@@ -65,10 +69,10 @@ fun PepsiNavHost(navController: NavHostController = rememberNavController()) {
     ) {
         NavHost(
             navController = navController,
-            startDestination = Screen.DepotOverview.route,
+            startDestination = startRoute,
             modifier = Modifier.fillMaxSize(),
         ) {
-            composable(Screen.DepotOverview.route) {
+            guarded(Screen.DepotOverview.route, ::openDrawer) {
                 OverviewScreen(
                     onMenuClick = ::openDrawer,
                     onProfileClick = { navController.navigate(Screen.Profile.route) },
@@ -77,19 +81,19 @@ fun PepsiNavHost(navController: NavHostController = rememberNavController()) {
                     onReceiveProducts = { navigateTo(Screen.ReceiveProducts) },
                 )
             }
-            composable(Screen.SalesHistory.route) {
+            guarded(Screen.SalesHistory.route, ::openDrawer) {
                 SalesHistoryScreen(onMenuClick = ::openDrawer)
             }
-            composable(Screen.ReceiveProducts.route) {
+            guarded(Screen.ReceiveProducts.route, ::openDrawer) {
                 ReceiveProductsScreen(onMenuClick = ::openDrawer)
             }
-            composable(Screen.SellProducts.route) {
+            guarded(Screen.SellProducts.route, ::openDrawer) {
                 SellProductsScreen(onMenuClick = ::openDrawer)
             }
-            composable(Screen.ViewStocks.route) {
+            guarded(Screen.ViewStocks.route, ::openDrawer) {
                 ViewStocksScreen(onMenuClick = ::openDrawer)
             }
-            composable(Screen.FactoryOverview.route) {
+            guarded(Screen.FactoryOverview.route, ::openDrawer) {
                 FactoryOverviewScreen(
                     onMenuClick = ::openDrawer,
                     onProfileClick = { navController.navigate(Screen.FactoryProfile.route) },
@@ -97,53 +101,53 @@ fun PepsiNavHost(navController: NavHostController = rememberNavController()) {
                     onViewDepos = { navigateTo(Screen.FactoryDepos) },
                 )
             }
-            composable(Screen.FactorySales.route) {
+            guarded(Screen.FactorySales.route, ::openDrawer) {
                 SalesScreen(onMenuClick = ::openDrawer)
             }
-            composable(Screen.FactoryProducts.route) {
+            guarded(Screen.FactoryProducts.route, ::openDrawer) {
                 ProductsScreen(onMenuClick = ::openDrawer)
             }
-            composable(Screen.FactoryDepos.route) {
+            guarded(Screen.FactoryDepos.route, ::openDrawer) {
                 DeposScreen(onMenuClick = ::openDrawer)
             }
-            composable(Screen.FactoryWorkers.route) {
+            guarded(Screen.FactoryWorkers.route, ::openDrawer) {
                 WorkersScreen(onMenuClick = ::openDrawer)
             }
-            composable(Screen.Profile.route) {
+            guarded(Screen.Profile.route, ::openDrawer) {
                 ProfileScreen(onBack = { navController.popBackStack() })
             }
-            composable(Screen.FactoryProfile.route) {
+            guarded(Screen.FactoryProfile.route, ::openDrawer) {
                 FactoryProfileScreen(
                     onBack = { navController.popBackStack() },
-                    onLogout = { navigateTo(Screen.FactoryOverview) },
+                    onLogout = { AuthSession.signOut() },
                 )
             }
-            composable(Screen.AdminOverview.route) {
+            guarded(Screen.AdminOverview.route, ::openDrawer) {
                 AdminOverviewScreen(onMenuClick = ::openDrawer)
             }
-            composable(Screen.AdminUsers.route) {
+            guarded(Screen.AdminUsers.route, ::openDrawer) {
                 UsersScreen(
                     onMenuClick = ::openDrawer,
                     onRegisterUser = { navController.navigate(Screen.AdminRegisterUser.route) },
                     onRegisterRole = { navController.navigate(Screen.AdminRegisterRole.route) },
                 )
             }
-            composable(Screen.AdminRegisterUser.route) {
+            guarded(Screen.AdminRegisterUser.route, ::openDrawer) {
                 RegisterUserScreen(onDone = { navController.popBackStack() })
             }
-            composable(Screen.AdminRegisterRole.route) {
+            guarded(Screen.AdminRegisterRole.route, ::openDrawer) {
                 RegisterRoleScreen(onDone = { navController.popBackStack() })
             }
-            composable(Screen.AdminDepos.route) {
+            guarded(Screen.AdminDepos.route, ::openDrawer) {
                 AdminDeposScreen(
                     onMenuClick = ::openDrawer,
                     onRegisterDepo = { navController.navigate(Screen.AdminRegisterDepo.route) },
                 )
             }
-            composable(Screen.AdminRegisterDepo.route) {
+            guarded(Screen.AdminRegisterDepo.route, ::openDrawer) {
                 RegisterDepoScreen(onDone = { navController.popBackStack() })
             }
-            composable(Screen.AdminProducts.route) {
+            guarded(Screen.AdminProducts.route, ::openDrawer) {
                 AdminProductsScreen(
                     onMenuClick = ::openDrawer,
                     onRegisterProduct = { navController.navigate(Screen.AdminRegisterProduct.route) },
@@ -151,24 +155,31 @@ fun PepsiNavHost(navController: NavHostController = rememberNavController()) {
                     onRegisterPrice = { navController.navigate(Screen.AdminRegisterPrice.route) },
                 )
             }
-            composable(Screen.AdminRegisterProduct.route) {
+            guarded(Screen.AdminRegisterProduct.route, ::openDrawer) {
                 RegisterProductScreen(onDone = { navController.popBackStack() })
             }
-            composable(Screen.AdminRegisterQuantity.route) {
+            guarded(Screen.AdminRegisterQuantity.route, ::openDrawer) {
                 RegisterQuantityScreen(onDone = { navController.popBackStack() })
             }
-            composable(Screen.AdminRegisterPrice.route) {
+            guarded(Screen.AdminRegisterPrice.route, ::openDrawer) {
                 RegisterPriceScreen(onDone = { navController.popBackStack() })
             }
-            composable(Screen.AdminAuditLogs.route) {
+            guarded(Screen.AdminAuditLogs.route, ::openDrawer) {
                 AuditLogsScreen(onMenuClick = ::openDrawer)
             }
-            composable(Screen.AdminSystemHealth.route) {
+            guarded(Screen.AdminSystemHealth.route, ::openDrawer) {
                 SystemHealthScreen(onMenuClick = ::openDrawer)
             }
-            composable(Screen.AdminSettings.route) {
+            guarded(Screen.AdminSettings.route, ::openDrawer) {
                 SettingsScreen(onMenuClick = ::openDrawer)
             }
         }
+    }
+}
+
+/** A destination that shows an access-denied screen unless the user's permissions cover [route]. */
+private fun NavGraphBuilder.guarded(route: String, onMenuClick: () -> Unit, content: @Composable () -> Unit) {
+    composable(route) {
+        if (AppAccess.canAccessRoute(route)) content() else AccessDeniedScreen(onMenuClick)
     }
 }

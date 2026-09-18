@@ -20,10 +20,12 @@ import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Security
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -58,11 +60,15 @@ import androidx.compose.ui.unit.dp
 import android.widget.Toast
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import com.example.pepsi.auth.AppAccess
+import com.example.pepsi.auth.PermissionModule
 import com.example.pepsi.network.RetrofitClient
 import com.example.pepsi.network.model.DepotResponse
 import com.example.pepsi.network.model.PersonnelCreateRequest
+import com.example.pepsi.network.model.PermissionResponse
 import com.example.pepsi.network.model.PersonnelResponse
 import com.example.pepsi.network.model.RoleCreateRequest
+import com.example.pepsi.network.model.RolePermissionsRequest
 import com.example.pepsi.network.model.RoleResponse
 import com.example.pepsi.network.readErrorMessage
 import com.example.pepsi.ui.components.PepsiTopBar
@@ -77,7 +83,25 @@ fun UsersScreen(
     onRegisterUser: () -> Unit,
     onRegisterRole: () -> Unit,
 ) {
-    var selectedTab by rememberSaveable { mutableStateOf(TAB_USERS) }
+    val canReadUsers = AppAccess.canRead(PermissionModule.ADMIN_PERSONNEL)
+    val canReadRoles = AppAccess.canRead(PermissionModule.ADMIN_ROLES)
+    var requestedTab by rememberSaveable { mutableStateOf(TAB_USERS) }
+    val selectedTab = when {
+        requestedTab == TAB_USERS && canReadUsers -> TAB_USERS
+        requestedTab == TAB_ROLES && canReadRoles -> TAB_ROLES
+        canReadUsers -> TAB_USERS
+        else -> TAB_ROLES
+    }
+    val tabs = buildList {
+        if (canReadUsers) add(TAB_USERS)
+        if (canReadRoles) add(TAB_ROLES)
+    }
+    val canEditUsers = AppAccess.canUpdate(PermissionModule.ADMIN_PERSONNEL)
+    val canDeleteUsers = AppAccess.canDelete(PermissionModule.ADMIN_PERSONNEL)
+    val canEditRoles = AppAccess.canUpdate(PermissionModule.ADMIN_ROLES)
+    val canDeleteRoles = AppAccess.canDelete(PermissionModule.ADMIN_ROLES)
+    val canViewPermissions = AppAccess.canRead(PermissionModule.AUTH_PERMISSIONS)
+    var permissionsRole by remember { mutableStateOf<RoleResponse?>(null) }
 
     var personnel by remember { mutableStateOf<List<PersonnelResponse>>(emptyList()) }
     var personnelLoading by remember { mutableStateOf(true) }
@@ -148,8 +172,8 @@ fun UsersScreen(
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
                 scope.launch {
-                    loadPersonnel()
-                    loadRoles()
+                    if (canReadUsers) loadPersonnel()
+                    if (canReadRoles) loadRoles()
                     loadDepots()
                 }
             }
@@ -164,19 +188,31 @@ fun UsersScreen(
     Scaffold(
         topBar = { PepsiTopBar(title = "Users", onMenuClick = onMenuClick) },
         floatingActionButton = {
-            ExtendedFloatingActionButton(
-                text = { Text(if (selectedTab == TAB_USERS) "Register User" else "Add Role") },
-                icon = { Icon(Icons.Filled.Add, contentDescription = null) },
-                onClick = { if (selectedTab == TAB_USERS) onRegisterUser() else onRegisterRole() },
-                containerColor = MaterialTheme.colorScheme.secondary,
-                contentColor = MaterialTheme.colorScheme.onSecondary,
-            )
+            val canCreateHere = if (selectedTab == TAB_USERS) {
+                AppAccess.canCreate(PermissionModule.ADMIN_PERSONNEL)
+            } else {
+                AppAccess.canCreate(PermissionModule.ADMIN_ROLES)
+            }
+            if (canCreateHere) {
+                ExtendedFloatingActionButton(
+                    text = { Text(if (selectedTab == TAB_USERS) "Register User" else "Add Role") },
+                    icon = { Icon(Icons.Filled.Add, contentDescription = null) },
+                    onClick = { if (selectedTab == TAB_USERS) onRegisterUser() else onRegisterRole() },
+                    containerColor = MaterialTheme.colorScheme.secondary,
+                    contentColor = MaterialTheme.colorScheme.onSecondary,
+                )
+            }
         },
     ) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
-            TabRow(selectedTabIndex = selectedTab) {
-                Tab(selected = selectedTab == TAB_USERS, onClick = { selectedTab = TAB_USERS }, text = { Text("Users") })
-                Tab(selected = selectedTab == TAB_ROLES, onClick = { selectedTab = TAB_ROLES }, text = { Text("Roles") })
+            TabRow(selectedTabIndex = tabs.indexOf(selectedTab).coerceAtLeast(0)) {
+                tabs.forEach { tab ->
+                    Tab(
+                        selected = selectedTab == tab,
+                        onClick = { requestedTab = tab },
+                        text = { Text(if (tab == TAB_USERS) "Users" else "Roles") },
+                    )
+                }
             }
 
             if (selectedTab == TAB_USERS) {
@@ -206,8 +242,8 @@ fun UsersScreen(
                         person = person,
                         roleLabel = roleById[person.role_id]?.name ?: person.role_id?.let { "Role #$it" } ?: "Unassigned",
                         depotLabel = depotById[person.depot_id]?.name ?: person.depot_id?.let { "Depot #$it" } ?: "Unassigned",
-                        onEdit = { editingPersonnel = person },
-                        onDelete = { deletingPersonnel = person },
+                        onEdit = if (canEditUsers) ({ editingPersonnel = person }) else null,
+                        onDelete = if (canDeleteUsers) ({ deletingPersonnel = person }) else null,
                     )
                 }
             } else {
@@ -230,8 +266,9 @@ fun UsersScreen(
                 ) { role ->
                     RoleRow(
                         role = role,
-                        onEdit = { editingRole = role },
-                        onDelete = { deletingRole = role },
+                        onEdit = if (canEditRoles) ({ editingRole = role }) else null,
+                        onDelete = if (canDeleteRoles) ({ deletingRole = role }) else null,
+                        onPermissions = if (canViewPermissions) ({ permissionsRole = role }) else null,
                     )
                 }
             }
@@ -282,6 +319,10 @@ fun UsersScreen(
                 Toast.makeText(context, "Role updated successfully", Toast.LENGTH_LONG).show()
             },
         )
+    }
+
+    permissionsRole?.let { role ->
+        RolePermissionsDialog(role = role, onDismiss = { permissionsRole = null })
     }
 
     deletingRole?.let { role ->
@@ -378,8 +419,8 @@ private fun PersonnelRow(
     person: PersonnelResponse,
     roleLabel: String,
     depotLabel: String,
-    onEdit: () -> Unit,
-    onDelete: () -> Unit,
+    onEdit: (() -> Unit)?,
+    onDelete: (() -> Unit)?,
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -393,11 +434,15 @@ private fun PersonnelRow(
             ) {
                 Text(text = person.name, style = MaterialTheme.typography.titleMedium)
                 Row {
-                    IconButton(onClick = onEdit) {
-                        Icon(Icons.Filled.Edit, contentDescription = "Edit user")
+                    if (onEdit != null) {
+                        IconButton(onClick = onEdit) {
+                            Icon(Icons.Filled.Edit, contentDescription = "Edit user")
+                        }
                     }
-                    IconButton(onClick = onDelete) {
-                        Icon(Icons.Filled.Delete, contentDescription = "Delete user")
+                    if (onDelete != null) {
+                        IconButton(onClick = onDelete) {
+                            Icon(Icons.Filled.Delete, contentDescription = "Delete user")
+                        }
                     }
                 }
             }
@@ -413,7 +458,12 @@ private fun PersonnelRow(
 }
 
 @Composable
-private fun RoleRow(role: RoleResponse, onEdit: () -> Unit, onDelete: () -> Unit) {
+private fun RoleRow(
+    role: RoleResponse,
+    onEdit: (() -> Unit)?,
+    onDelete: (() -> Unit)?,
+    onPermissions: (() -> Unit)?,
+) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
@@ -428,11 +478,20 @@ private fun RoleRow(role: RoleResponse, onEdit: () -> Unit, onDelete: () -> Unit
                 Text(text = "ID: ${role.id}", style = MaterialTheme.typography.bodyMedium)
             }
             Row {
-                IconButton(onClick = onEdit) {
-                    Icon(Icons.Filled.Edit, contentDescription = "Edit role")
+                if (onPermissions != null) {
+                    IconButton(onClick = onPermissions) {
+                        Icon(Icons.Filled.Security, contentDescription = "Role permissions")
+                    }
                 }
-                IconButton(onClick = onDelete) {
-                    Icon(Icons.Filled.Delete, contentDescription = "Delete role")
+                if (onEdit != null) {
+                    IconButton(onClick = onEdit) {
+                        Icon(Icons.Filled.Edit, contentDescription = "Edit role")
+                    }
+                }
+                if (onDelete != null) {
+                    IconButton(onClick = onDelete) {
+                        Icon(Icons.Filled.Delete, contentDescription = "Delete role")
+                    }
                 }
             }
         }
@@ -701,6 +760,132 @@ private fun ConfirmDeleteDialog(
         dismissButton = {
             OutlinedButton(onClick = onDismiss, enabled = !isSubmitting) {
                 Text("Cancel")
+            }
+        },
+    )
+}
+
+/**
+ * Lists every permission on the platform grouped by module, ticked for the ones this role
+ * holds. Saving assigns the newly ticked permissions and revokes the unticked ones.
+ * Only users who can update permissions may change the ticks.
+ */
+@Composable
+private fun RolePermissionsDialog(role: RoleResponse, onDismiss: () -> Unit) {
+    val canEdit = AppAccess.canUpdate(PermissionModule.AUTH_PERMISSIONS)
+    var allPermissions by remember { mutableStateOf<List<PermissionResponse>>(emptyList()) }
+    var granted by remember { mutableStateOf<Set<Int>>(emptySet()) }
+    var original by remember { mutableStateOf<Set<Int>>(emptySet()) }
+    var isLoading by remember { mutableStateOf(true) }
+    var loadError by remember { mutableStateOf<String?>(null) }
+    var isSaving by remember { mutableStateOf(false) }
+
+    val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+
+    androidx.compose.runtime.LaunchedEffect(role.id) {
+        try {
+            val all = RetrofitClient.authApi.listPermissions()
+            val mine = RetrofitClient.authApi.listRolePermissions(role.id)
+            if (all.isSuccessful && mine.isSuccessful) {
+                allPermissions = all.body().orEmpty()
+                original = mine.body().orEmpty().map { it.id }.toSet()
+                granted = original
+            } else {
+                loadError = (if (!all.isSuccessful) all else mine).readErrorMessage()
+            }
+        } catch (e: Exception) {
+            loadError = "Network error: ${e.message}"
+        } finally {
+            isLoading = false
+        }
+    }
+
+    val changed = granted != original
+
+    AlertDialog(
+        onDismissRequest = { if (!isSaving) onDismiss() },
+        title = { Text("Permissions: ${role.name}") },
+        text = {
+            when {
+                isLoading -> Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator()
+                }
+                loadError != null -> Text(loadError.orEmpty(), color = MaterialTheme.colorScheme.error)
+                else -> Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                    allPermissions
+                        .groupBy { it.module_name ?: it.module_key }
+                        .forEach { (module, permissions) ->
+                            Text(
+                                text = module,
+                                style = MaterialTheme.typography.titleMedium,
+                                modifier = Modifier.padding(top = 8.dp),
+                            )
+                            permissions.forEach { permission ->
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Checkbox(
+                                        checked = permission.id in granted,
+                                        enabled = canEdit && !isSaving,
+                                        onCheckedChange = { checked ->
+                                            granted = if (checked) granted + permission.id else granted - permission.id
+                                        },
+                                    )
+                                    Text(permission.action.replaceFirstChar { it.uppercase() })
+                                }
+                            }
+                        }
+                }
+            }
+        },
+        confirmButton = {
+            if (canEdit) {
+                Button(
+                    enabled = changed && !isSaving && !isLoading && loadError == null,
+                    onClick = {
+                        isSaving = true
+                        scope.launch {
+                            try {
+                                val toAdd = (granted - original).toList()
+                                val toRemove = (original - granted).toList()
+                                var failure: String? = null
+                                if (toAdd.isNotEmpty()) {
+                                    val response = RetrofitClient.authApi.assignRolePermissions(role.id, RolePermissionsRequest(toAdd))
+                                    if (!response.isSuccessful) failure = response.readErrorMessage()
+                                }
+                                if (failure == null) {
+                                    for (id in toRemove) {
+                                        val response = RetrofitClient.authApi.revokeRolePermission(role.id, id)
+                                        if (!response.isSuccessful) {
+                                            failure = response.readErrorMessage()
+                                            break
+                                        }
+                                    }
+                                }
+                                if (failure == null) {
+                                    Toast.makeText(context, "Permissions updated. Affected users see the change when they next sign in.", Toast.LENGTH_LONG).show()
+                                    onDismiss()
+                                } else {
+                                    Toast.makeText(context, failure, Toast.LENGTH_LONG).show()
+                                }
+                            } catch (e: Exception) {
+                                Toast.makeText(context, "Network error: ${e.message}", Toast.LENGTH_LONG).show()
+                            } finally {
+                                isSaving = false
+                            }
+                        }
+                    },
+                ) {
+                    if (isSaving) {
+                        CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                    } else {
+                        Text("Save")
+                    }
+                }
+            }
+        },
+        dismissButton = {
+            OutlinedButton(onClick = onDismiss, enabled = !isSaving) {
+                Text(if (canEdit) "Cancel" else "Close")
             }
         },
     )

@@ -48,6 +48,8 @@ import androidx.compose.ui.unit.dp
 import android.widget.Toast
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import com.example.pepsi.auth.AppAccess
+import com.example.pepsi.auth.PermissionModule
 import com.example.pepsi.network.RetrofitClient
 import com.example.pepsi.network.model.PriceResponse
 import com.example.pepsi.network.model.PriceUpdateRequest
@@ -70,7 +72,24 @@ fun ProductsScreen(
     onRegisterQuantity: () -> Unit,
     onRegisterPrice: () -> Unit,
 ) {
-    var selectedTab by rememberSaveable { mutableStateOf(TAB_PRODUCTS) }
+    val readableTabs = buildList {
+        if (AppAccess.canRead(PermissionModule.ADMIN_PRODUCTS)) add(TAB_PRODUCTS)
+        if (AppAccess.canRead(PermissionModule.ADMIN_QUANTITIES)) add(TAB_QUANTITIES)
+        if (AppAccess.canRead(PermissionModule.ADMIN_PRICES)) add(TAB_PRICES)
+    }
+    var requestedTab by rememberSaveable { mutableStateOf(TAB_PRODUCTS) }
+    val selectedTab = if (requestedTab in readableTabs) requestedTab else readableTabs.firstOrNull() ?: TAB_PRODUCTS
+    val tabModule = when (selectedTab) {
+        TAB_PRODUCTS -> PermissionModule.ADMIN_PRODUCTS
+        TAB_QUANTITIES -> PermissionModule.ADMIN_QUANTITIES
+        else -> PermissionModule.ADMIN_PRICES
+    }
+    val canEditProducts = AppAccess.canUpdate(PermissionModule.ADMIN_PRODUCTS)
+    val canDeleteProducts = AppAccess.canDelete(PermissionModule.ADMIN_PRODUCTS)
+    val canEditQuantities = AppAccess.canUpdate(PermissionModule.ADMIN_QUANTITIES)
+    val canDeleteQuantities = AppAccess.canDelete(PermissionModule.ADMIN_QUANTITIES)
+    val canEditPrices = AppAccess.canUpdate(PermissionModule.ADMIN_PRICES)
+    val canDeletePrices = AppAccess.canDelete(PermissionModule.ADMIN_PRICES)
 
     var products by remember { mutableStateOf<List<ProductResponse>>(emptyList()) }
     var productsLoading by remember { mutableStateOf(true) }
@@ -152,9 +171,9 @@ fun ProductsScreen(
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
                 scope.launch {
-                    loadProducts()
-                    loadQuantities()
-                    loadPrices()
+                    if (TAB_PRODUCTS in readableTabs) loadProducts()
+                    if (TAB_QUANTITIES in readableTabs) loadQuantities()
+                    if (TAB_PRICES in readableTabs) loadPrices()
                 }
             }
         }
@@ -167,34 +186,48 @@ fun ProductsScreen(
     Scaffold(
         topBar = { PepsiTopBar(title = "Products", onMenuClick = onMenuClick) },
         floatingActionButton = {
-            ExtendedFloatingActionButton(
-                text = {
-                    Text(
+            if (AppAccess.canCreate(tabModule)) {
+                ExtendedFloatingActionButton(
+                    text = {
+                        Text(
+                            when (selectedTab) {
+                                TAB_PRODUCTS -> "Add Product"
+                                TAB_QUANTITIES -> "Add Quantity"
+                                else -> "Add Price"
+                            },
+                        )
+                    },
+                    icon = { Icon(Icons.Filled.Add, contentDescription = null) },
+                    onClick = {
                         when (selectedTab) {
-                            TAB_PRODUCTS -> "Add Product"
-                            TAB_QUANTITIES -> "Add Quantity"
-                            else -> "Add Price"
-                        },
-                    )
-                },
-                icon = { Icon(Icons.Filled.Add, contentDescription = null) },
-                onClick = {
-                    when (selectedTab) {
-                        TAB_PRODUCTS -> onRegisterProduct()
-                        TAB_QUANTITIES -> onRegisterQuantity()
-                        else -> onRegisterPrice()
-                    }
-                },
-                containerColor = MaterialTheme.colorScheme.secondary,
-                contentColor = MaterialTheme.colorScheme.onSecondary,
-            )
+                            TAB_PRODUCTS -> onRegisterProduct()
+                            TAB_QUANTITIES -> onRegisterQuantity()
+                            else -> onRegisterPrice()
+                        }
+                    },
+                    containerColor = MaterialTheme.colorScheme.secondary,
+                    contentColor = MaterialTheme.colorScheme.onSecondary,
+                )
+            }
         },
     ) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
-            TabRow(selectedTabIndex = selectedTab) {
-                Tab(selected = selectedTab == TAB_PRODUCTS, onClick = { selectedTab = TAB_PRODUCTS }, text = { Text("Products") })
-                Tab(selected = selectedTab == TAB_QUANTITIES, onClick = { selectedTab = TAB_QUANTITIES }, text = { Text("Quantities") })
-                Tab(selected = selectedTab == TAB_PRICES, onClick = { selectedTab = TAB_PRICES }, text = { Text("Prices") })
+            TabRow(selectedTabIndex = readableTabs.indexOf(selectedTab).coerceAtLeast(0)) {
+                readableTabs.forEach { tab ->
+                    Tab(
+                        selected = selectedTab == tab,
+                        onClick = { requestedTab = tab },
+                        text = {
+                            Text(
+                                when (tab) {
+                                    TAB_PRODUCTS -> "Products"
+                                    TAB_QUANTITIES -> "Quantities"
+                                    else -> "Prices"
+                                },
+                            )
+                        },
+                    )
+                }
             }
 
             when (selectedTab) {
@@ -219,8 +252,8 @@ fun ProductsScreen(
                         SimpleCatalogRow(
                             title = product.name,
                             subtitle = "ID: ${product.id}",
-                            onEdit = { editingProduct = product },
-                            onDelete = { deletingProduct = product },
+                            onEdit = if (canEditProducts) ({ editingProduct = product }) else null,
+                            onDelete = if (canDeleteProducts) ({ deletingProduct = product }) else null,
                         )
                     }
                 }
@@ -246,8 +279,8 @@ fun ProductsScreen(
                         SimpleCatalogRow(
                             title = quantity.quantity,
                             subtitle = "ID: ${quantity.id}",
-                            onEdit = { editingQuantity = quantity },
-                            onDelete = { deletingQuantity = quantity },
+                            onEdit = if (canEditQuantities) ({ editingQuantity = quantity }) else null,
+                            onDelete = if (canDeleteQuantities) ({ deletingQuantity = quantity }) else null,
                         )
                     }
                 }
@@ -277,8 +310,8 @@ fun ProductsScreen(
                         PriceRow(
                             price = price,
                             quantityLabel = quantityById[price.quantity_id]?.quantity ?: "Quantity #${price.quantity_id}",
-                            onEdit = { editingPrice = price },
-                            onDelete = { deletingPrice = price },
+                            onEdit = if (canEditPrices) ({ editingPrice = price }) else null,
+                            onDelete = if (canDeletePrices) ({ deletingPrice = price }) else null,
                         )
                     }
                 }
@@ -463,7 +496,7 @@ private fun <T> CatalogList(
 }
 
 @Composable
-private fun SimpleCatalogRow(title: String, subtitle: String, onEdit: () -> Unit, onDelete: () -> Unit) {
+private fun SimpleCatalogRow(title: String, subtitle: String, onEdit: (() -> Unit)?, onDelete: (() -> Unit)?) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
@@ -478,11 +511,15 @@ private fun SimpleCatalogRow(title: String, subtitle: String, onEdit: () -> Unit
                 Text(text = subtitle, style = MaterialTheme.typography.bodyMedium)
             }
             Row {
-                IconButton(onClick = onEdit) {
-                    Icon(Icons.Filled.Edit, contentDescription = "Edit")
+                if (onEdit != null) {
+                    IconButton(onClick = onEdit) {
+                        Icon(Icons.Filled.Edit, contentDescription = "Edit")
+                    }
                 }
-                IconButton(onClick = onDelete) {
-                    Icon(Icons.Filled.Delete, contentDescription = "Delete")
+                if (onDelete != null) {
+                    IconButton(onClick = onDelete) {
+                        Icon(Icons.Filled.Delete, contentDescription = "Delete")
+                    }
                 }
             }
         }
@@ -490,7 +527,7 @@ private fun SimpleCatalogRow(title: String, subtitle: String, onEdit: () -> Unit
 }
 
 @Composable
-private fun PriceRow(price: PriceResponse, quantityLabel: String, onEdit: () -> Unit, onDelete: () -> Unit) {
+private fun PriceRow(price: PriceResponse, quantityLabel: String, onEdit: (() -> Unit)?, onDelete: (() -> Unit)?) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
@@ -503,11 +540,15 @@ private fun PriceRow(price: PriceResponse, quantityLabel: String, onEdit: () -> 
             ) {
                 Text(text = quantityLabel, style = MaterialTheme.typography.titleMedium)
                 Row {
-                    IconButton(onClick = onEdit) {
-                        Icon(Icons.Filled.Edit, contentDescription = "Edit price")
+                    if (onEdit != null) {
+                        IconButton(onClick = onEdit) {
+                            Icon(Icons.Filled.Edit, contentDescription = "Edit price")
+                        }
                     }
-                    IconButton(onClick = onDelete) {
-                        Icon(Icons.Filled.Delete, contentDescription = "Delete price")
+                    if (onDelete != null) {
+                        IconButton(onClick = onDelete) {
+                            Icon(Icons.Filled.Delete, contentDescription = "Delete price")
+                        }
                     }
                 }
             }
